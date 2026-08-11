@@ -172,6 +172,15 @@ export class VideoService {
                 partNumber,
                 totalSize: chunkSize ? `${(chunkSize / 1024 / 1024).toFixed(2)}MB` : 'unknown',
             });
+            logger.info('🌐 Sending video chunk to TikTok API', {
+                url: `${config.tiktok.apiBaseUrl}/v2/post/publish/video/upload/`,
+                params: {
+                    upload_token: uploadToken.substring(0, 20) + '...',
+                    part_number: partNumber,
+                },
+                bufferSize: videoBuffer.length,
+                contentType: 'application/octet-stream',
+            });
             const response = await axios.post(`${config.tiktok.apiBaseUrl}/v2/post/publish/video/upload/`, videoBuffer, {
                 headers: {
                     Authorization: `Bearer ${user.accessToken}`,
@@ -189,6 +198,7 @@ export class VideoService {
             logger.info('✅ Video chunk uploaded successfully', {
                 partNumber,
                 responseStatus: response.status,
+                responseData: JSON.stringify(response.data).substring(0, 200),
             });
         }
         catch (error) {
@@ -234,9 +244,15 @@ export class VideoService {
                 publish_type: publishType,
                 post_info: postInfo,
             };
-            logger.debug('📋 Finalize payload', {
+            logger.info('📋 Finalize payload details', {
+                upload_token: uploadToken.substring(0, 20) + '...',
                 publish_type: finishPayload.publish_type,
                 post_info_fields: Object.keys(postInfo),
+                post_info: postInfo,
+            });
+            logger.info('🌐 Sending finalize request to TikTok API', {
+                url: `${config.tiktok.apiBaseUrl}/v2/post/publish/video/finish/`,
+                payload: JSON.stringify(finishPayload),
             });
             const response = await axios.post(`${config.tiktok.apiBaseUrl}/v2/post/publish/video/finish/`, finishPayload, {
                 headers: {
@@ -244,6 +260,10 @@ export class VideoService {
                     'Content-Type': 'application/json',
                 },
                 timeout: 30000, // 30 seconds for finalization
+            });
+            logger.info('📡 Finalize response received', {
+                status: response.status,
+                data: JSON.stringify(response.data).substring(0, 500),
             });
             if (!response.data?.data?.video_id) {
                 logger.error('❌ Invalid response from finalize endpoint', {
