@@ -194,6 +194,11 @@ export class VideoService {
         });
       }
 
+      logger.info('🌐 Sending init request to TikTok API', {
+        url: `${config.tiktok.apiBaseUrl}/v2/post/publish/video/init/`,
+        payload: JSON.stringify(initPayload),
+      });
+
       const response = await axios.post<TikTokVideoInit>(
         `${config.tiktok.apiBaseUrl}/v2/post/publish/video/init/`,
         initPayload,
@@ -206,24 +211,44 @@ export class VideoService {
         },
       );
 
+      logger.info('📡 Init response received', {
+        status: response.status,
+        data: JSON.stringify(response.data).substring(0, 500),
+      });
+
       const uploadToken = response.data.data.upload_token;
 
       logger.info('✅ Upload token received', {
         tokenLength: uploadToken.length,
         willUseChunks,
+        token_sample: uploadToken.substring(0, 30) + '...',
       });
 
       return uploadToken;
     } catch (error) {
       logger.error('❌ Failed to initialize upload', {
-        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
       });
 
       if (axios.isAxiosError(error)) {
         const errorData = error.response?.data as any;
+        const errorStatus = error.response?.status;
+        const errorHeaders = error.response?.headers;
+
+        logger.error('❌ TikTok API Error Response', {
+          status: errorStatus,
+          statusText: error.response?.statusText,
+          headers: JSON.stringify(errorHeaders).substring(0, 200),
+          data: JSON.stringify(errorData),
+          requestURL: error.config?.url,
+          requestPayload: error.config?.data?.substring(0, 200),
+        });
+
         throw new AppError(
           ErrorCode.TIKTOK_API_ERROR,
-          error.response?.status || 500,
+          errorStatus || 500,
           {
             message: errorData?.message || 'TikTok API error',
             details: errorData,

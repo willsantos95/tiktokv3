@@ -1,134 +1,123 @@
-# TikTok Video Upload - Debug & Enhanced Logging
+# TikTok Upload - Critical Debug Logging v2
 
-## Correções Implementadas
+## 🔍 Problema Identificado
 
-### 1. CSP Configuration Fix (src/server.ts)
-- ✅ Permite `data:` URLs para preview de vídeo
-- ✅ Fix para "media blocked by CSP"
-- ✅ Video preview agora aparece na modal
+O erro está no `initializeUpload()` - TikTok está rejeitando o request ao init endpoint.
 
-### 2. Enhanced Logging (src/modules/video/services/video.service.ts)
-- ✅ Logs detalhados de upload para TikTok API
-- ✅ Logs de request/response do finalize
-- ✅ Informações de buffer size e headers
-- ✅ Ajuda a identificar "video info is empty" erro
-
-## Como Fazer Deploy
-
-### Via EasyPanel (Recomendado)
-
-1. **Extraia o ZIP**
-   ```bash
-   unzip tiktok-app-upload-debug.zip
-   cd tiktok-app-upload-debug
-   ```
-
-2. **Acesse EasyPanel → File Manager**
-   - Vá para `/app`
-   - Delete o conteúdo antigo
-   - Copie os arquivos do ZIP
-
-3. **Reinicie no Terminal EasyPanel**
-   ```bash
-   npm run build
-   npm run start
-   ```
-
-4. **Recarregue no navegador**
-   ```
-   https://vid.relampagodeofertas.shop/dashboard.html
-   ```
-
-## Como Testar o Upload
-
-### Passo 1: Teste com Vídeo Pequeno
-- Abra dashboard
-- Selecione MP4 < 5MB
-- Adicione título e hashtags
-- Clique "Review & Publish"
-
-### Passo 2: Verifique os Logs
-- **No Navegador (F12)**
-  - Console → Procure por erro
-  - Network → POST /api/v1/video/publish
-  - Response → Veja mensagem de erro do TikTok
-
-- **No EasyPanel Terminal**
-  - Veja logs do servidor em tempo real
-  - Procure por: "🌐 Sending video chunk to TikTok API"
-  - Procure por: "🌐 Sending finalize request to TikTok API"
-  - Procure por: "Finalize response received"
-
-### Passo 3: Compartilhe Informações
-Se o upload falhar:
-
-1. **Erro no Console do Navegador:**
-   ```
-   POST https://vid.relampagodeofertas.shop/api/v1/video/publish 400
-   Response: {error object}
-   ```
-
-2. **Logs do EasyPanel Terminal:**
-   ```
-   📤 Uploading video chunk
-   ✅ Video chunk uploaded successfully
-   🌐 Sending finalize request
-   📡 Finalize response received
-   ```
-
-## Arquivos Modificados
-
-### src/server.ts
-```typescript
-// Helmet CSP configuration para permitir data: URLs
-mediaSrc: ["'self'", 'data:'],
+**Logs mostram:**
 ```
+📤 Initializing video upload
+❌ Failed to initialize upload
+```
+
+## ✅ Solução Implementada
+
+Adicionado **logging crítico super detalhado** para capturar:
+- ✅ Request exato enviado para TikTok
+- ✅ Status HTTP da resposta
+- ✅ Headers da resposta
+- ✅ Corpo completo do erro
+- ✅ Payload do request original
+
+## 📋 Arquivos Modificados
 
 ### src/modules/video/services/video.service.ts
-```typescript
-// Logging detalhado:
-logger.info('🌐 Sending video chunk to TikTok API', {...});
-logger.info('✅ Video chunk uploaded successfully', {...});
-logger.info('🌐 Sending finalize request to TikTok API', {...});
-logger.info('📡 Finalize response received', {...});
+
+**Nova logging no initializeUpload():**
+```
+🌐 Sending init request to TikTok API
+  - URL: https://...
+  - Payload: {source_info: {...}}
+
+📡 Init response received
+  - Status: 200/400/etc
+  - Response data: {...}
+
+❌ TikTok API Error Response (se falhar)
+  - Status: X
+  - Error data: {...}
+  - Request details: {...}
 ```
 
-## Variáveis de Ambiente Necessárias
+## 🚀 Como Fazer Deploy
 
+### 1. EasyPanel - File Manager
+- Delete `/app` conteúdo antigo
+- Copie arquivos do ZIP
+
+### 2. EasyPanel - Terminal
 ```bash
-NODE_ENV=production
-APP_URL=https://vid.relampagodeofertas.shop
-CORS_ORIGIN=https://vid.relampagodeofertas.shop
-TIKTOK_CLIENT_KEY=sbawom3osgvtdcjh12
-TIKTOK_CLIENT_SECRET=JC19bDo5UrBFpti0xLyIyXCxP5PHkYSM
-TIKTOK_REDIRECT_URI=https://vid.relampagodeofertas.shop/api/v1/auth/callback
-SESSION_SECRET=your_secret_here
+npm run build
+npm run start
 ```
 
-## Próximas Etapas
+### 3. Teste Upload
+- Abra: https://vid.relampagodeofertas.shop/dashboard.html
+- Teste com vídeo MP4 pequeno
 
-1. **Deploy no EasyPanel** com este ZIP
-2. **Teste o upload** com vídeo pequeno
-3. **Verifique os logs** no terminal EasyPanel
-4. **Compartilhe os logs** se falhar
-5. Com os logs, podemos identificar exatamente o que TikTok está rejeitando
+### 4. Verifique Logs
+**IMPORTANTE:** Veja o terminal do EasyPanel durante o upload:
 
-## Dúvidas Comuns
+```
+📤 Initializing video upload
+  fileSize: X.XXmB
+  chunkSize: 5.00MB
 
-**P: Vídeo preview ainda não aparece?**
-- Limpe cache do navegador (Ctrl+F5)
-- Verifique console para erros de CSP
+🌐 Sending init request to TikTok API
+  url: https://api.tiktok.com/v2/post/publish/video/init/
+  payload: {...}
 
-**P: Upload ainda falha com "video info is empty"?**
-- Verifique logs no EasyPanel terminal
-- Procure por "Finalize response received"
-- TikTok deve retornar detalhes do erro naquele log
+❌ TikTok API Error Response  ← AQUI ESTÁ O ERRO!
+  status: 400/401/403
+  data: {error: "...", message: "..."}
+```
 
-**P: Como reiniciar o servidor?**
-- EasyPanel → Seu Container → Terminal
-- `npm run start`
+## 📸 O Que Procurar nos Logs
 
-## Version
+Se o upload falhar, procure por:
 
-v4.2 - Enhanced Logging + CSP Fix
+1. **"TikTok API Error Response"** - Este é o erro exato!
+2. **"status"** - Código HTTP (400, 401, 403, etc)
+3. **"data"** - Mensagem exata do TikTok API
+4. **"requestPayload"** - O que enviamos
+
+Exemplo de erro esperado:
+```
+❌ TikTok API Error Response
+  status: 400
+  data: {"error": {...}, "message": "..."}
+```
+
+## 💡 Possíveis Problemas
+
+### 1. Erro 401 - Unauthorized
+- Token expirou
+- Solução: Faça logout e login novamente
+
+### 2. Erro 403 - Forbidden  
+- App não tem permissão
+- Solução: Verifique TikTok Developer Console
+
+### 3. Erro 400 - Bad Request
+- Payload inválido
+- Solução: Verifique `requestPayload` nos logs
+
+### 4. Erro 500 - Server Error
+- TikTok API está down
+- Solução: Espere e tente mais tarde
+
+## ✨ Versão
+
+v4.3 - Critical Debug Logging
 Date: 2026-08-11
+
+## 🎯 Próximo Passo
+
+1. **Deploy este ZIP**
+2. **Teste upload**
+3. **Compartilhe os LOGS COMPLETOS** do terminal EasyPanel
+4. Com os logs, identificaremos exatamente o que está errado
+
+---
+
+**Com estes logs, vamos resolver o problema! 🚀**
