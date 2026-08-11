@@ -234,24 +234,28 @@ export class VideoService {
     } catch (error) {
       logger.error('❌ Failed to initialize upload', {
         error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
       });
 
       if (axios.isAxiosError(error)) {
         const errorData = error.response?.data as any;
         const errorStatus = error.response?.status;
+        const fullResponse = JSON.stringify(error.response?.data);
 
+        // Log COMPLETE response data
         logger.error('❌ TikTok API Error Response', {
           status: errorStatus,
           statusText: error.response?.statusText,
-          error: errorData?.error,
-          message: errorData?.message,
+          fullData: fullResponse,
+          errorMessage: error.message,
+          responseData: errorData,
         });
 
         throw new AppError(
           ErrorCode.TIKTOK_API_ERROR,
           errorStatus || 500,
           {
-            message: errorData?.message || 'TikTok API error',
+            message: errorData?.message || errorData?.error?.message || 'TikTok API error',
             details: errorData,
           },
         );

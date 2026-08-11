@@ -1,0 +1,17 @@
+🔴 TESTE IMEDIATO NECESSÁRIO
+
+1. EasyPanel Terminal:
+   npm run build
+   npm run start
+
+2. Teste upload novamente
+
+3. Verifique logs - procure por:
+   ❌ TikTok API Error Response
+   fullData: {...}
+
+4. Compartilhe EXATAMENTE o que estiver em "fullData"
+
+---
+
+Este fix mostra o erro COMPLETO do TikTok!
