@@ -28,7 +28,8 @@ export interface TikTokUserInfo {
 
 export interface TikTokVideoInit {
   data: {
-    upload_token: string;
+    upload_token?: string;
+    video_id?: string;
   };
 }
 

@@ -162,46 +162,47 @@ export class VideoService {
     });
   }
 
-  async initializeUpload(
+  async initializeUploadFromUrl(
     user: SessionUser,
-    fileSize: number,
-    chunkSizeBytes: number = 5 * 1024 * 1024,
+    videoUrl: string,
+    metadata: VideoMetadata,
+    publishType: 'DRAFT' | 'PUBLISH_IMMEDIATELY',
   ): Promise<string> {
     try {
-      logger.info('📤 Initializing video upload', {
-        fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
-        chunkSize: `${(chunkSizeBytes / 1024 / 1024).toFixed(2)}MB`,
+      logger.info('📤 Initializing video upload from URL', {
+        videoUrl: videoUrl.substring(0, 50) + '...',
+        publishType,
       });
 
-      // Calculate chunk count for large files
-      const CHUNK_THRESHOLD = 10 * 1024 * 1024;
-      const willUseChunks = fileSize > CHUNK_THRESHOLD;
-
-      // Build init payload per TikTok API v2 documentation
+      // Build init payload per TikTok API v2 documentation - PULL_FROM_URL method
       // https://developers.tiktok.com/doc/video-upload-api
+      const postInfo: any = {
+        title: metadata.title || 'Video',
+        privacy_level: metadata.privacyLevel,
+        disable_comment: metadata.disableComment,
+        disable_duet: metadata.disableDuet,
+        disable_stitch: metadata.disableStitch,
+        allow_download: true,
+        auto_add_linked_sound: false,
+      };
+
+      // Set video cover timestamp if provided
+      if (metadata.videoCoverTimestampMs) {
+        postInfo.video_cover_timestamp_ms = metadata.videoCoverTimestampMs;
+      }
+
       const initPayload: any = {
+        post_info: postInfo,
         source_info: {
-          source: 'FILE_UPLOAD',
+          source: 'PULL_FROM_URL',
+          video_url: videoUrl,
         },
       };
 
-      // For chunked uploads, add chunk_size and total_size per TikTok spec
-      if (willUseChunks) {
-        initPayload.source_info.chunk_size = chunkSizeBytes;
-        initPayload.source_info.total_size = fileSize;
-        logger.info('📊 Chunked upload (file > 10MB)', {
-          fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
-          chunkSize: `${(chunkSizeBytes / 1024 / 1024).toFixed(2)}MB`,
-          totalSize: fileSize,
-        });
-      } else {
-        logger.info('📊 Simple upload (file < 10MB)', {
-          fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
-        });
-      }
-
-      logger.info('🌐 Sending init request to TikTok API', {
+      logger.info('🌐 Sending init request to TikTok API (PULL_FROM_URL)', {
         url: `${config.tiktok.apiBaseUrl}/v2/post/publish/video/init/`,
+        source: 'PULL_FROM_URL',
+        videoUrl: videoUrl.substring(0, 50) + '...',
         payload: JSON.stringify(initPayload),
       });
 
@@ -211,7 +212,7 @@ export class VideoService {
         {
           headers: {
             Authorization: `Bearer ${user.accessToken}`,
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=UTF-8',
           },
           timeout: 15000,
         },
@@ -222,15 +223,15 @@ export class VideoService {
         data: JSON.stringify(response.data).substring(0, 500),
       });
 
-      const uploadToken = response.data.data.upload_token;
+      const videoId = response.data.data.video_id;
 
-      logger.info('✅ Upload token received', {
-        tokenLength: uploadToken.length,
-        willUseChunks,
-        token_sample: uploadToken.substring(0, 30) + '...',
+      logger.info('✅ Video published successfully via PULL_FROM_URL', {
+        videoId,
+        title: metadata.title,
+        privacy: metadata.privacyLevel,
       });
 
-      return uploadToken;
+      return videoId;
     } catch (error) {
       logger.error('❌ Failed to initialize upload', {
         error: error instanceof Error ? error.message : String(error),

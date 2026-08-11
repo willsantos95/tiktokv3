@@ -1,15 +1,47 @@
 import { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
+import path from 'path';
 import { videoService } from '../../../modules/video/services/video.service.js';
 import { oauthService } from '../../../modules/auth/services/oauth.service.js';
 import { logger } from '../../../shared/utils/logger.js';
 import { AppError } from '../../../shared/middleware/error-handler.js';
 import { ErrorCode } from '../../../shared/constants/error-codes.js';
 import { VideoMetadata, ApiResponse } from '../../../types/index.js';
+import { config } from '../../../config/index.js';
 
 export class VideoController {
+  private saveVideoToPublicDir(sourceFilePath: string): string {
+    const publicDir = config.upload.publicDir;
+    const timestamp = Date.now();
+    const originalName = path.parse(path.basename(sourceFilePath)).name;
+    const ext = path.extname(sourceFilePath);
+    const filename = `${originalName}-${timestamp}${ext}`;
+    const destPath = path.join(publicDir, filename);
+
+    if (!fs.existsSync(publicDir)) {
+      fs.mkdirSync(publicDir, { recursive: true });
+    }
+
+    fs.copyFileSync(sourceFilePath, destPath);
+    logger.info('✅ Video file saved to public directory', {
+      filename,
+      source: sourceFilePath,
+      destination: destPath,
+    });
+
+    return filename;
+  }
+
+  private generateVideoUrl(filename: string): string {
+    const baseUrl = config.appUrl.replace(/\/$/, '');
+    const videoUrl = `${baseUrl}/uploads/public/${filename}`;
+    logger.info('🌐 Generated video URL', { videoUrl });
+    return videoUrl;
+  }
+
   async uploadDraft(req: Request, res: Response<ApiResponse>, next: NextFunction) {
     let tempFilePath: string | null = null;
+    let publicFilePath: string | null = null;
 
     try {
       if (!req.user) {
@@ -70,29 +102,16 @@ export class VideoController {
         }
       }
 
-      // Initialize upload
-      const fileSize = fs.statSync(tempFilePath).size;
-      const uploadToken = await videoService.initializeUpload(req.user, fileSize);
+      // Save video to public directory and generate URL
+      const filename = this.saveVideoToPublicDir(tempFilePath);
+      publicFilePath = path.join(config.upload.publicDir, filename);
+      const videoUrl = this.generateVideoUrl(filename);
 
-      // Upload video - use chunked upload for files > 10MB, simple upload otherwise
-      const CHUNK_THRESHOLD = 10 * 1024 * 1024; // 10MB
-      if (fileSize > CHUNK_THRESHOLD) {
-        logger.info('📤 Using chunked upload for large file', {
-          fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
-        });
-        await videoService.uploadVideoFile(req.user, uploadToken, tempFilePath);
-      } else {
-        logger.info('📤 Using simple upload for small file', {
-          fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
-        });
-        const videoBuffer = fs.readFileSync(tempFilePath);
-        await videoService.uploadVideoChunk(req.user, uploadToken, videoBuffer, 1, fileSize);
-      }
-
-      // Finalize upload as draft
-      const videoId = await videoService.finalizeUpload(
+      // Upload to TikTok using PULL_FROM_URL method
+      logger.info('🚀 Uploading to TikTok using PULL_FROM_URL method', { videoUrl });
+      const videoId = await videoService.initializeUploadFromUrl(
         req.user,
-        uploadToken,
+        videoUrl,
         metadata,
         'DRAFT',
       );
@@ -119,12 +138,17 @@ export class VideoController {
         videoService.cleanupTempFile(tempFilePath);
       }
 
+      if (publicFilePath && fs.existsSync(publicFilePath)) {
+        videoService.cleanupTempFile(publicFilePath);
+      }
+
       next(error);
     }
   }
 
   async publishVideo(req: Request, res: Response<ApiResponse>, next: NextFunction) {
     let tempFilePath: string | null = null;
+    let publicFilePath: string | null = null;
 
     try {
       if (!req.user) {
@@ -186,29 +210,16 @@ export class VideoController {
         }
       }
 
-      // Initialize upload
-      const fileSize = fs.statSync(tempFilePath).size;
-      const uploadToken = await videoService.initializeUpload(req.user, fileSize);
+      // Save video to public directory and generate URL
+      const filename = this.saveVideoToPublicDir(tempFilePath);
+      publicFilePath = path.join(config.upload.publicDir, filename);
+      const videoUrl = this.generateVideoUrl(filename);
 
-      // Upload video - use chunked upload for files > 10MB, simple upload otherwise
-      const CHUNK_THRESHOLD = 10 * 1024 * 1024; // 10MB
-      if (fileSize > CHUNK_THRESHOLD) {
-        logger.info('📤 Using chunked upload for large file', {
-          fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
-        });
-        await videoService.uploadVideoFile(req.user, uploadToken, tempFilePath);
-      } else {
-        logger.info('📤 Using simple upload for small file', {
-          fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
-        });
-        const videoBuffer = fs.readFileSync(tempFilePath);
-        await videoService.uploadVideoChunk(req.user, uploadToken, videoBuffer, 1, fileSize);
-      }
-
-      // Finalize and publish
-      const videoId = await videoService.finalizeUpload(
+      // Upload to TikTok using PULL_FROM_URL method
+      logger.info('🚀 Uploading to TikTok using PULL_FROM_URL method', { videoUrl });
+      const videoId = await videoService.initializeUploadFromUrl(
         req.user,
-        uploadToken,
+        videoUrl,
         metadata,
         'PUBLISH_IMMEDIATELY',
       );
@@ -233,6 +244,10 @@ export class VideoController {
 
       if (tempFilePath) {
         videoService.cleanupTempFile(tempFilePath);
+      }
+
+      if (publicFilePath && fs.existsSync(publicFilePath)) {
+        videoService.cleanupTempFile(publicFilePath);
       }
 
       next(error);

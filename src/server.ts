@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import session from 'express-session';
 import helmet from 'helmet';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { config, validateConfig } from './config/index.js';
 import { logger } from './shared/utils/logger.js';
@@ -17,6 +18,18 @@ const __dirname = path.dirname(__filename);
 
 // Validate configuration
 validateConfig();
+
+// Create upload directories if they don't exist
+const uploadsDir = path.join(process.cwd(), 'uploads');
+const publicUploadDir = path.join(uploadsDir, 'public');
+const tempUploadDir = path.join(uploadsDir, 'temp');
+
+[uploadsDir, publicUploadDir, tempUploadDir].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    logger.info(`📁 Created directory: ${dir}`);
+  }
+});
 
 const app = express();
 
@@ -85,6 +98,10 @@ logger.info('📋 Session middleware configured', {
 const publicDir = path.join(__dirname, '..', 'public');
 app.use(express.static(publicDir));
 logger.info(`📁 Serving static files from: ${publicDir}`);
+
+// Serve uploaded videos
+app.use('/uploads', express.static(uploadsDir));
+logger.info(`📁 Serving uploads from: ${uploadsDir}`);
 
 // Request logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
