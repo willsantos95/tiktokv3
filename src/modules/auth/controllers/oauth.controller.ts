@@ -79,8 +79,20 @@ export class OAuthController {
       // Create session user
       const sessionUser = oauthService.createSessionUser(tokenData, userData);
 
+      logger.info('📦 SessionUser object created', {
+        keys: Object.keys(sessionUser),
+        displayName: sessionUser.displayName,
+        avatarUrl: sessionUser.avatarUrl ? sessionUser.avatarUrl.substring(0, 50) + '...' : 'N/A',
+      });
+
       // Store in session
       req.session.user = sessionUser;
+
+      logger.info('💾 SessionUser stored in session', {
+        sessionId: req.sessionID,
+        hasDisplayName: !!req.session.user.displayName,
+        hasAvatarUrl: !!req.session.user.avatarUrl,
+      });
 
       logger.info('🎉 OAuth flow completed successfully', {
         displayName: userData.display_name,
@@ -136,6 +148,8 @@ export class OAuthController {
 
       logger.info('✅ User found in session', {
         displayName: req.session.user.displayName,
+        avatarUrl: req.session.user.avatarUrl ? req.session.user.avatarUrl.substring(0, 50) + '...' : 'N/A',
+        userKeys: Object.keys(req.session.user),
       });
 
       // Check if token needs refresh
@@ -162,6 +176,12 @@ export class OAuthController {
           );
         }
       }
+
+      logger.info('📤 Returning user data to frontend', {
+        displayName: req.session.user.displayName,
+        avatarUrl: req.session.user.avatarUrl ? req.session.user.avatarUrl.substring(0, 50) + '...' : 'N/A',
+        allKeys: Object.keys(req.session.user),
+      });
 
       res.json({
         success: true,
