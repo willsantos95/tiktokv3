@@ -174,42 +174,36 @@ export class VideoService {
       });
 
       // Calculate chunk count for large files
-      const chunkCount = Math.ceil(fileSize / chunkSizeBytes);
       const CHUNK_THRESHOLD = 10 * 1024 * 1024;
       const willUseChunks = fileSize > CHUNK_THRESHOLD;
 
-      // Build init payload - ONLY include chunk_count for chunked uploads
+      // Build init payload per TikTok API v2 documentation
+      // https://developers.tiktok.com/doc/video-upload-api
       const initPayload: any = {
         source_info: {
           source: 'FILE_UPLOAD',
         },
       };
 
-      // Add chunk count if file will be uploaded in chunks
+      // For chunked uploads, add chunk_size and total_size per TikTok spec
       if (willUseChunks) {
-        initPayload.source_info.chunk_count = chunkCount;
-        logger.info('📊 Chunked upload info', {
+        initPayload.source_info.chunk_size = chunkSizeBytes;
+        initPayload.source_info.total_size = fileSize;
+        logger.info('📊 Chunked upload (file > 10MB)', {
           fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
           chunkSize: `${(chunkSizeBytes / 1024 / 1024).toFixed(2)}MB`,
-          chunkCount,
-          chunksPerFile: chunkCount,
+          totalSize: fileSize,
         });
       } else {
-        logger.info('📊 Simple upload (no chunks)', {
+        logger.info('📊 Simple upload (file < 10MB)', {
           fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
         });
       }
 
-      const payloadStr = JSON.stringify(initPayload);
       logger.info('🌐 Sending init request to TikTok API', {
         url: `${config.tiktok.apiBaseUrl}/v2/post/publish/video/init/`,
-        payload: payloadStr,
-        accessToken: user.accessToken?.substring(0, 30) + '...',
+        payload: JSON.stringify(initPayload),
       });
-
-      console.log('DEBUG: Init payload:', payloadStr);
-      console.log('DEBUG: API URL:', `${config.tiktok.apiBaseUrl}/v2/post/publish/video/init/`);
-      console.log('DEBUG: Auth header:', `Bearer ${user.accessToken?.substring(0, 30)}...`);
 
       const response = await axios.post<TikTokVideoInit>(
         `${config.tiktok.apiBaseUrl}/v2/post/publish/video/init/`,
@@ -238,45 +232,20 @@ export class VideoService {
 
       return uploadToken;
     } catch (error) {
-      console.error('DEBUG: Caught error in initializeUpload');
-      console.error('DEBUG: Error type:', error instanceof Error ? error.constructor.name : typeof error);
-      console.error('DEBUG: Error message:', error instanceof Error ? error.message : String(error));
-
       logger.error('❌ Failed to initialize upload', {
-        errorType: error instanceof Error ? error.constructor.name : typeof error,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
+        error: error instanceof Error ? error.message : String(error),
       });
 
       if (axios.isAxiosError(error)) {
-        console.error('DEBUG: Axios error detected');
-        console.error('DEBUG: Response status:', error.response?.status);
-        console.error('DEBUG: Response statusText:', error.response?.statusText);
-        console.error('DEBUG: Response data:', JSON.stringify(error.response?.data));
-        console.error('DEBUG: Response headers:', JSON.stringify(error.response?.headers));
-
         const errorData = error.response?.data as any;
         const errorStatus = error.response?.status;
-        const errorHeaders = error.response?.headers;
-        const requestPayload = error.config?.data ? (typeof error.config.data === 'string' ? error.config.data : JSON.stringify(error.config.data)) : 'N/A';
 
-        const logData = {
+        logger.error('❌ TikTok API Error Response', {
           status: errorStatus,
           statusText: error.response?.statusText,
-          headers: JSON.stringify(errorHeaders),
-          fullData: errorData,
-          dataString: JSON.stringify(errorData),
-          requestURL: error.config?.url,
-          requestMethod: error.config?.method,
-          requestPayload: requestPayload.substring(0, 500),
-          errorMessage: error.message,
-          code: errorData?.code || errorData?.error?.code || 'UNKNOWN',
-          description: errorData?.description || errorData?.message || errorData?.error?.message || 'No error message',
-        };
-
-        console.error('DEBUG: Log data:', JSON.stringify(logData, null, 2));
-
-        logger.error('❌ TikTok API Error Response', logData);
+          error: errorData?.error,
+          message: errorData?.message,
+        });
 
         throw new AppError(
           ErrorCode.TIKTOK_API_ERROR,
