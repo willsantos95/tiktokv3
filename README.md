@@ -1,49 +1,65 @@
-# TikTok Upload - Critical Debug Logging v2
+# TikTok Upload - CRITICAL FIX v3
 
-## 🔍 Problema Identificado
+## 🔴 PROBLEMA IDENTIFICADO E CORRIGIDO
 
-O erro está no `initializeUpload()` - TikTok está rejeitando o request ao init endpoint.
-
-**Logs mostram:**
-```
-📤 Initializing video upload
-❌ Failed to initialize upload
-```
-
-## ✅ Solução Implementada
-
-Adicionado **logging crítico super detalhado** para capturar:
-- ✅ Request exato enviado para TikTok
-- ✅ Status HTTP da resposta
-- ✅ Headers da resposta
-- ✅ Corpo completo do erro
-- ✅ Payload do request original
-
-## 📋 Arquivos Modificados
-
-### src/modules/video/services/video.service.ts
-
-**Nova logging no initializeUpload():**
-```
-🌐 Sending init request to TikTok API
-  - URL: https://...
-  - Payload: {source_info: {...}}
-
-📡 Init response received
-  - Status: 200/400/etc
-  - Response data: {...}
-
-❌ TikTok API Error Response (se falhar)
-  - Status: X
-  - Error data: {...}
-  - Request details: {...}
+### O Erro
+TikTok API estava rejeitando `initializeUpload()` porque:
+```json
+{
+  "source_info": {
+    "source": "FILE_UPLOAD",
+    "chunk_size": 7232982  ← INVÁLIDO! Não deveria estar aqui!
+  }
+}
 ```
 
-## 🚀 Como Fazer Deploy
+### A Solução
+Remover campo inválido `chunk_size`. Payload correto:
+```json
+{
+  "source_info": {
+    "source": "FILE_UPLOAD",
+    "chunk_count": 2  ← Só para arquivos > 10MB
+  }
+}
+```
+
+## ✅ Mudanças Implementadas
+
+### 1. **CRITICAL FIX** - src/modules/video/services/video.service.ts
+```typescript
+// ANTES (ERRADO):
+const initPayload = {
+  source_info: {
+    source: 'FILE_UPLOAD',
+    chunk_size: fileSize,  // ❌ Campo inválido!
+  }
+};
+
+// DEPOIS (CORRETO):
+const initPayload = {
+  source_info: {
+    source: 'FILE_UPLOAD',
+    // chunk_count adicionado APENAS para uploads > 10MB
+  }
+};
+```
+
+### 2. **Ultra-Detailed Logging**
+Agora captura:
+- ✅ Status HTTP completo
+- ✅ Erro code do TikTok
+- ✅ Descrição do erro
+- ✅ Request payload enviado
+- ✅ Resposta completa (não truncada)
+
+## 🚀 Deploy Imediato
 
 ### 1. EasyPanel - File Manager
-- Delete `/app` conteúdo antigo
-- Copie arquivos do ZIP
+```
+Delete /app conteúdo antigo
+Copy ZIP files para /app
+```
 
 ### 2. EasyPanel - Terminal
 ```bash
@@ -52,72 +68,51 @@ npm run start
 ```
 
 ### 3. Teste Upload
-- Abra: https://vid.relampagodeofertas.shop/dashboard.html
-- Teste com vídeo MP4 pequeno
+- Selecione vídeo (qualquer tamanho)
+- Clique "Review & Publish"
+- **Deve funcionar agora!** ✅
 
-### 4. Verifique Logs
-**IMPORTANTE:** Veja o terminal do EasyPanel durante o upload:
+## 📋 Se Ainda Falhar
 
+Verifique os logs:
 ```
-📤 Initializing video upload
-  fileSize: X.XXmB
-  chunkSize: 5.00MB
-
 🌐 Sending init request to TikTok API
-  url: https://api.tiktok.com/v2/post/publish/video/init/
   payload: {...}
 
-❌ TikTok API Error Response  ← AQUI ESTÁ O ERRO!
-  status: 400/401/403
-  data: {error: "...", message: "..."}
+❌ TikTok API Error Response
+  status: XXX
+  code: "..."
+  description: "..."
+  fullData: {...}
 ```
 
-## 📸 O Que Procurar nos Logs
+## 🎯 Esperado Após Fix
 
-Se o upload falhar, procure por:
+### Sucesso:
+```
+📤 Initializing video upload
+🌐 Sending init request to TikTok API
+📡 Init response received
+  status: 200
+  data: {data: {upload_token: "..."}}
+✅ Upload token received
+```
 
-1. **"TikTok API Error Response"** - Este é o erro exato!
-2. **"status"** - Código HTTP (400, 401, 403, etc)
-3. **"data"** - Mensagem exata do TikTok API
-4. **"requestPayload"** - O que enviamos
-
-Exemplo de erro esperado:
+### Erro (se houver outro):
 ```
 ❌ TikTok API Error Response
-  status: 400
-  data: {"error": {...}, "message": "..."}
+  status: 400/401/403
+  code: "invalid_params"
+  description: "..."
 ```
-
-## 💡 Possíveis Problemas
-
-### 1. Erro 401 - Unauthorized
-- Token expirou
-- Solução: Faça logout e login novamente
-
-### 2. Erro 403 - Forbidden  
-- App não tem permissão
-- Solução: Verifique TikTok Developer Console
-
-### 3. Erro 400 - Bad Request
-- Payload inválido
-- Solução: Verifique `requestPayload` nos logs
-
-### 4. Erro 500 - Server Error
-- TikTok API está down
-- Solução: Espere e tente mais tarde
 
 ## ✨ Versão
 
-v4.3 - Critical Debug Logging
+v4.4 - **CRITICAL PAYLOAD FIX**
 Date: 2026-08-11
 
-## 🎯 Próximo Passo
-
-1. **Deploy este ZIP**
-2. **Teste upload**
-3. **Compartilhe os LOGS COMPLETOS** do terminal EasyPanel
-4. Com os logs, identificaremos exatamente o que está errado
+**Este ZIP deve RESOLVER o problema! 🎉**
 
 ---
 
-**Com estes logs, vamos resolver o problema! 🚀**
+Deploy agora e teste!

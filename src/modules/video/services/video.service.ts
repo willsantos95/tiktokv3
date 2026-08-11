@@ -178,10 +178,10 @@ export class VideoService {
       const CHUNK_THRESHOLD = 10 * 1024 * 1024;
       const willUseChunks = fileSize > CHUNK_THRESHOLD;
 
+      // Build init payload - ONLY include chunk_count for chunked uploads
       const initPayload: any = {
         source_info: {
           source: 'FILE_UPLOAD',
-          chunk_size: fileSize,
         },
       };
 
@@ -189,8 +189,14 @@ export class VideoService {
       if (willUseChunks) {
         initPayload.source_info.chunk_count = chunkCount;
         logger.info('📊 Chunked upload info', {
+          fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
+          chunkSize: `${(chunkSizeBytes / 1024 / 1024).toFixed(2)}MB`,
           chunkCount,
           chunksPerFile: chunkCount,
+        });
+      } else {
+        logger.info('📊 Simple upload (no chunks)', {
+          fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
         });
       }
 
@@ -236,14 +242,20 @@ export class VideoService {
         const errorData = error.response?.data as any;
         const errorStatus = error.response?.status;
         const errorHeaders = error.response?.headers;
+        const requestPayload = error.config?.data ? (typeof error.config.data === 'string' ? error.config.data : JSON.stringify(error.config.data)) : 'N/A';
 
         logger.error('❌ TikTok API Error Response', {
           status: errorStatus,
           statusText: error.response?.statusText,
-          headers: JSON.stringify(errorHeaders).substring(0, 200),
-          data: JSON.stringify(errorData),
+          headers: JSON.stringify(errorHeaders),
+          fullData: errorData,
+          dataString: JSON.stringify(errorData),
           requestURL: error.config?.url,
-          requestPayload: error.config?.data?.substring(0, 200),
+          requestMethod: error.config?.method,
+          requestPayload: requestPayload.substring(0, 500),
+          errorMessage: error.message,
+          code: errorData?.code || 'UNKNOWN',
+          description: errorData?.description || errorData?.message || 'No error message',
         });
 
         throw new AppError(
