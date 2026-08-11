@@ -107,6 +107,10 @@ const TikTokAuth = {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ User authenticated:', data.data?.user);
+        console.log('🔍 Raw user object keys:', data.data?.user ? Object.keys(data.data.user) : 'null');
+        console.log('🔍 displayName value:', data.data?.user?.displayName);
+        console.log('🔍 avatarUrl value:', data.data?.user?.avatarUrl);
+        console.log('🔍 Full response data:', JSON.stringify(data, null, 2));
         // User is authenticated
         this.updateUIForAuthenticated(data.data?.user);
 
