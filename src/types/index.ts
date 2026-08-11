@@ -19,10 +19,12 @@ export interface TikTokOAuthResponse {
 
 export interface TikTokUserInfo {
   data: {
-    open_id: string;
-    union_id: string;
-    avatar_url: string;
-    display_name: string;
+    user: {
+      open_id: string;
+      union_id: string;
+      avatar_url: string;
+      display_name: string;
+    };
   };
 }
 

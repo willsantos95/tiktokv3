@@ -67,20 +67,25 @@ export class OAuthService {
     }
   }
 
-  async fetchUserInfo(accessToken: string): Promise<TikTokUserInfo['data']> {
+  async fetchUserInfo(accessToken: string): Promise<TikTokUserInfo['data']['user']> {
     try {
       logger.info('👤 Fetching user information from TikTok');
 
       const userUrl = `${config.tiktok.apiBaseUrl}/v2/user/info/?fields=open_id,union_id,avatar_url,display_name`;
+      logger.info('🌐 Request URL:', { userUrl });
+
       const response = await axios.get<TikTokUserInfo>(userUrl, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
 
-      const userData = response.data.data;
-      logger.info('✅ User info retrieved', {
+      const userData = response.data.data.user;
+      logger.info('✅ User info retrieved from TikTok', {
         displayName: userData.display_name,
+        avatarUrl: userData.avatar_url ? userData.avatar_url.substring(0, 50) + '...' : 'N/A',
+        allFields: userData,
+        allKeys: Object.keys(userData),
       });
 
       return userData;
@@ -149,7 +154,7 @@ export class OAuthService {
     tokenData: TikTokOAuthResponse['data'],
     userData: TikTokUserInfo['data'],
   ): SessionUser {
-    return {
+    const sessionUser: SessionUser = {
       openId: tokenData.open_id,
       unionId: userData.union_id,
       displayName: userData.display_name,
@@ -159,6 +164,15 @@ export class OAuthService {
       expiresAt: new Date(Date.now() + tokenData.expires_in * 1000),
       tokenScope: tokenData.scope || 'user.info.basic,video.upload,video.publish',
     };
+
+    logger.info('🔨 Creating SessionUser object', {
+      inputUserData: userData,
+      createdSessionUser: sessionUser,
+      hasDisplayName: !!sessionUser.displayName,
+      hasAvatarUrl: !!sessionUser.avatarUrl,
+    });
+
+    return sessionUser;
   }
 }
 
