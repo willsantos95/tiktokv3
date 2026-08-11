@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Manage and publish your TikTok content with Relampago de Ofertas.">
+  <meta name="theme-color" content="#111827">
+  <title>Dashboard | Relampago de Ofertas</title>
+  <link rel="icon" href="./assets/img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./assets/css/styles.css">
+  <link rel="stylesheet" href="./assets/css/dashboard.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a class="brand" href="./index.html" aria-label="Relampago de Ofertas home">
+        <img src="./assets/img/logo.svg" alt="Relampago de Ofertas logo" width="40" height="40">
+        <span>Relampago de Ofertas</span>
+      </a>
+      <div class="header-actions">
+        <button class="nav-toggle" aria-label="Open navigation" aria-expanded="false">☰</button>
+        <button id="user-menu-btn" class="user-menu-btn" aria-label="User menu">
+          <span id="user-name">User</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="8" r="4"></circle>
+            <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"></path>
+          </svg>
+        </button>
+      </div>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="./index.html">Home</a>
+        <a href="./features.html">Features</a>
+        <a href="./how-it-works.html">How it works</a>
+        <a href="./support.html">Support</a>
+        <button id="logout-btn" class="button secondary" style="padding: 8px 14px; font-size: 0.9rem;">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="dashboard-page">
+    <!-- User Info Bar -->
+    <section class="user-info-bar">
+      <div class="container">
+        <div class="user-info">
+          <div class="user-avatar">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="8" r="4"></circle>
+              <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"></path>
+            </svg>
+          </div>
+          <div>
+            <p class="user-label">Connected TikTok Account</p>
+            <h2 class="user-account-name" id="tiktok-username">Carregando...</h2>
+            <p class="user-id" id="user-id" style="font-size: 0.85rem; color: #666; margin-top: 4px;"></p>
+          </div>
+        </div>
+        <a href="#" id="disconnect-btn" class="text-link">Disconnect Account →</a>
+      </div>
+    </section>
+
+    <!-- Main Content -->
+    <section class="dashboard-content">
+      <div class="container">
+        <div class="dashboard-header">
+          <div>
+            <h1>Manage Your Content</h1>
+            <p>Choose how you want to publish your videos to TikTok</p>
+          </div>
+        </div>
+
+        <!-- Two-Column Layout -->
+        <div class="publishing-options">
+          <!-- Option 1: Video Upload (Draft) -->
+          <div class="publishing-card draft-card">
+            <div class="card-header">
+              <span class="badge draft">Draft Upload</span>
+              <h2>Send as Draft</h2>
+            </div>
+
+            <div class="card-description">
+              <p>Upload your video to TikTok as a draft. You'll review and finalize the publication directly in the TikTok app.</p>
+            </div>
+
+            <div class="card-features">
+              <h3>What happens:</h3>
+              <ul class="feature-list">
+                <li><span class="step-number">1</span> You select a video and caption</li>
+                <li><span class="step-number">2</span> Video uploads to your TikTok drafts</li>
+                <li><span class="step-number">3</span> You complete editing in TikTok app</li>
+                <li><span class="step-number">4</span> You publish from TikTok</li>
+              </ul>
+            </div>
+
+            <div class="card-benefits">
+              <h3>Benefits:</h3>
+              <ul class="benefits-list">
+                <li>✓ Full control in TikTok editor</li>
+                <li>✓ Add effects, music, stickers</li>
+                <li>✓ Schedule posting time</li>
+                <li>✓ Save drafts for later</li>
+              </ul>
+            </div>
+
+            <form id="upload-draft-form" class="upload-form">
+              <div class="form-group">
+                <label for="video-file-draft">Select Video</label>
+                <input type="file" id="video-file-draft" accept="video/*" required>
+                <span class="file-hint">MP4, MOV, or WebM (max 2GB)</span>
+              </div>
+
+              <div class="form-group">
+                <label for="caption-draft">Video Caption</label>
+                <textarea id="caption-draft" placeholder="Add your video caption..." rows="3"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="privacy-draft">Privacy Level</label>
+                <select id="privacy-draft" required>
+                  <option value="SELF_ONLY">Apenas para mim (SELF_ONLY)</option>
+                  <option value="PUBLIC">Público (PUBLIC)</option>
+                  <option value="FRIENDS">Apenas amigos (FRIENDS)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>
+                  <input type="checkbox" id="disable-duet-draft" value="true">
+                  Desabilitar Duet
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label>
+                  <input type="checkbox" id="disable-comment-draft" value="true">
+                  Desabilitar Comentários
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label>
+                  <input type="checkbox" id="disable-stitch-draft" value="true">
+                  Desabilitar Stitch
+                </label>
+              </div>
+
+              <div id="draft-status" class="status-message"></div>
+
+              <button type="submit" class="button primary upload-btn">
+                <span class="btn-icon">📤</span>
+                <span>Upload as Draft</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Option 2: Video Publish (Direct) -->
+          <div class="publishing-card publish-card">
+            <div class="card-header">
+              <span class="badge publish">Direct Publish</span>
+              <h2>Publish Directly</h2>
+            </div>
+
+            <div class="card-description">
+              <p>Upload and publish your video directly to TikTok in one step. Content goes live immediately after you confirm.</p>
+            </div>
+
+            <div class="card-features">
+              <h3>What happens:</h3>
+              <ul class="feature-list">
+                <li><span class="step-number">1</span> You select a video and caption</li>
+                <li><span class="step-number">2</span> You review content before publishing</li>
+                <li><span class="step-number">3</span> Video uploads and publishes</li>
+                <li><span class="step-number">4</span> Content goes live on your profile</li>
+              </ul>
+            </div>
+
+            <div class="card-benefits">
+              <h3>Benefits:</h3>
+              <ul class="benefits-list">
+                <li>✓ One-click publishing workflow</li>
+                <li>✓ Faster content distribution</li>
+                <li>✓ Automated quality checks</li>
+                <li>✓ Publishing logs and tracking</li>
+              </ul>
+            </div>
+
+            <form id="publish-form" class="upload-form">
+              <div class="form-group">
+                <label for="video-file-publish">Select Video</label>
+                <input type="file" id="video-file-publish" accept="video/*" required>
+                <span class="file-hint">MP4, MOV, or WebM (max 2GB)</span>
+              </div>
+
+              <div class="form-group">
+                <label for="caption-publish">Video Caption</label>
+                <textarea id="caption-publish" placeholder="Add your video caption..." rows="3"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="hashtags-publish">Hashtags</label>
+                <input type="text" id="hashtags-publish" placeholder="Add hashtags separated by spaces (e.g. #tiktok #video #trending)">
+              </div>
+
+              <div class="form-group">
+                <label for="privacy-publish">Privacy Level</label>
+                <select id="privacy-publish" required>
+                  <option value="SELF_ONLY">Apenas para mim (SELF_ONLY)</option>
+                  <option value="PUBLIC">Público (PUBLIC)</option>
+                  <option value="FRIENDS">Apenas amigos (FRIENDS)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>
+                  <input type="checkbox" id="disable-duet-publish" value="true">
+                  Desabilitar Duet
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label>
+                  <input type="checkbox" id="disable-comment-publish" value="true">
+                  Desabilitar Comentários
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label>
+                  <input type="checkbox" id="disable-stitch-publish" value="true">
+                  Desabilitar Stitch
+                </label>
+              </div>
+
+              <div id="publish-status" class="status-message"></div>
+
+              <button type="submit" class="button primary upload-btn">
+                <span class="btn-icon">🚀</span>
+                <span>Review & Publish</span>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <section class="recent-activity">
+          <h2>Publication History</h2>
+          <div id="activity-list" class="activity-list">
+            <div class="activity-empty">
+              <p>No publications yet. Upload your first video to get started!</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- Publishing Preview Modal -->
+    <div id="preview-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Preview Before Publishing</h2>
+          <button class="modal-close" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="preview-video">
+            <video id="preview-video" controls></video>
+          </div>
+          <div class="preview-details">
+            <div class="preview-item">
+              <label>Caption:</label>
+              <p id="preview-caption"></p>
+            </div>
+            <div class="preview-item">
+              <label>Hashtags:</label>
+              <p id="preview-hashtags"></p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="button secondary" id="cancel-publish">Cancel</button>
+          <button class="button primary" id="confirm-publish">Publish to TikTok</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Publishing Status Modal -->
+    <div id="status-modal" class="modal">
+      <div class="modal-content modal-center">
+        <div id="status-icon" class="status-icon"></div>
+        <h2 id="status-title">Publishing...</h2>
+        <p id="status-message">Processing your video upload to TikTok...</p>
+        <button id="close-status" class="button primary" style="display: none;">Back to Dashboard</button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <a class="brand footer-brand" href="./index.html">
+          <img src="./assets/img/logo.svg" alt="" width="36" height="36">
+          <span>Relampago de Ofertas</span>
+        </a>
+        <p>Video publishing tools for authorized TikTok accounts.</p>
+      </div>
+      <div>
+        <h2 class="footer-title">Legal</h2>
+        <a href="./privacy-policy.html">Privacy Policy</a>
+        <a href="./terms-of-service.html">Terms of Service</a>
+      </div>
+      <div>
+        <h2 class="footer-title">Company</h2>
+        <a href="./features.html">Features</a>
+        <a href="./how-it-works.html">How it works</a>
+        <a href="./support.html">Support</a>
+      </div>
+      <div>
+        <h2 class="footer-title">Contact</h2>
+        <a href="mailto:contato@relampagodeoferta.shop">contato@relampagodeoferta.shop</a>
+        <span>Brazil</span>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <span>© <span data-current-year>2026</span> Relampago de Ofertas. All rights reserved.</span>
+      <span>Last website update: August 10, 2026</span>
+    </div>
+  </footer>
+
+  <script src="./assets/js/main.js"></script>
+  <script src="./assets/js/tiktok-auth.js"></script>
+  <script src="./assets/js/dashboard.js"></script>
+</body>
+</html>
