@@ -311,7 +311,7 @@ const Dashboard = {
         videoEl.src = e.target.result;
       }
     };
-    reader.readAsArrayBuffer(file);
+    reader.readAsDataURL(file);
   },
 
   // Show preview modal
@@ -326,7 +326,7 @@ const Dashboard = {
       const videoEl = document.getElementById('preview-video');
       videoEl.src = e.target.result;
     };
-    reader.readAsArrayBuffer(file);
+    reader.readAsDataURL(file);
 
     // Show modal
     this.showModal('preview-modal');
