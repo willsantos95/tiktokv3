@@ -15,8 +15,18 @@ const __dirname = path.dirname(__filename);
 // Validate configuration
 validateConfig();
 const app = express();
-// Security middleware
-app.use(helmet());
+// Security middleware with CSP allowing data URLs for video preview
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            mediaSrc: ["'self'", 'data:'],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", 'data:', 'https:'],
+        },
+    },
+}));
 // CORS configuration
 app.use(cors({
     origin: (origin, callback) => {
