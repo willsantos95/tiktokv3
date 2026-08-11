@@ -1,118 +1,81 @@
-# TikTok Upload - CRITICAL FIX v3
+# TikTok Upload - Ultra-Detailed Debug Logging
 
-## 🔴 PROBLEMA IDENTIFICADO E CORRIGIDO
+## 🔴 Problema
+Logging não está mostrando detalhes do erro TikTok.
 
-### O Erro
-TikTok API estava rejeitando `initializeUpload()` porque:
-```json
-{
-  "source_info": {
-    "source": "FILE_UPLOAD",
-    "chunk_size": 7232982  ← INVÁLIDO! Não deveria estar aqui!
-  }
-}
+## ✅ Solução
+Adicionado logging AGRESSIVO em TODOS os níveis:
+- console.error - Imediatamente visível
+- logger.error - Logs do servidor
+- Capture de payload, status, headers, data completa
+
+## 🚀 Deploy
+
+### EasyPanel - File Manager
+```
+Copy src/ files para /app/src
+Copy dist/ para /app/dist
+Copy public/ para /app/public
 ```
 
-### A Solução
-Remover campo inválido `chunk_size`. Payload correto:
-```json
-{
-  "source_info": {
-    "source": "FILE_UPLOAD",
-    "chunk_count": 2  ← Só para arquivos > 10MB
-  }
-}
-```
-
-## ✅ Mudanças Implementadas
-
-### 1. **CRITICAL FIX** - src/modules/video/services/video.service.ts
-```typescript
-// ANTES (ERRADO):
-const initPayload = {
-  source_info: {
-    source: 'FILE_UPLOAD',
-    chunk_size: fileSize,  // ❌ Campo inválido!
-  }
-};
-
-// DEPOIS (CORRETO):
-const initPayload = {
-  source_info: {
-    source: 'FILE_UPLOAD',
-    // chunk_count adicionado APENAS para uploads > 10MB
-  }
-};
-```
-
-### 2. **Ultra-Detailed Logging**
-Agora captura:
-- ✅ Status HTTP completo
-- ✅ Erro code do TikTok
-- ✅ Descrição do erro
-- ✅ Request payload enviado
-- ✅ Resposta completa (não truncada)
-
-## 🚀 Deploy Imediato
-
-### 1. EasyPanel - File Manager
-```
-Delete /app conteúdo antigo
-Copy ZIP files para /app
-```
-
-### 2. EasyPanel - Terminal
+### EasyPanel - Terminal
 ```bash
 npm run build
 npm run start
 ```
 
-### 3. Teste Upload
-- Selecione vídeo (qualquer tamanho)
-- Clique "Review & Publish"
-- **Deve funcionar agora!** ✅
+## 🧪 Teste Upload
 
-## 📋 Se Ainda Falhar
+1. Selecione vídeo MP4
+2. Clique "Review & Publish"
+3. **Verifique DOIS locais de logs:**
 
-Verifique os logs:
+### Local 1: Terminal EasyPanel
 ```
-🌐 Sending init request to TikTok API
-  payload: {...}
+DEBUG: Init payload: {...}
+DEBUG: API URL: https://api.tiktok.com/...
+DEBUG: Auth header: Bearer ...
+DEBUG: Response status: 400
+DEBUG: Response data: {...}
+DEBUG: Log data: {
+  status: 400,
+  code: "...",
+  description: "..."
+}
+```
 
+### Local 2: Browser Console (F12)
+```
+❌ Publish error response: Object
+```
+
+## 📋 O Que Esperar
+
+**Se tudo funcionar:**
+```
+✅ Upload token received
+```
+
+**Se falhar (esperado):**
+```
+DEBUG: Response status: 400/401/403
+DEBUG: Response data: {error: {...}}
 ❌ TikTok API Error Response
   status: XXX
   code: "..."
   description: "..."
-  fullData: {...}
 ```
 
-## 🎯 Esperado Após Fix
+## 🎯 Próximo Passo
 
-### Sucesso:
-```
-📤 Initializing video upload
-🌐 Sending init request to TikTok API
-📡 Init response received
-  status: 200
-  data: {data: {upload_token: "..."}}
-✅ Upload token received
-```
+1. Deploy este ZIP
+2. Rebuild: `npm run build`
+3. Restart: `npm run start`
+4. Teste upload
+5. **Compartilhe os logs COMPLETOS do terminal**
 
-### Erro (se houver outro):
-```
-❌ TikTok API Error Response
-  status: 400/401/403
-  code: "invalid_params"
-  description: "..."
-```
-
-## ✨ Versão
-
-v4.4 - **CRITICAL PAYLOAD FIX**
-Date: 2026-08-11
-
-**Este ZIP deve RESOLVER o problema! 🎉**
+Com o output completo, vou ver EXATAMENTE o que TikTok está retornando!
 
 ---
 
-Deploy agora e teste!
+v4.5 - Ultra-Detailed Debug Logging
