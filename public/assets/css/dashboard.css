@@ -35,6 +35,29 @@
   stroke: currentColor;
 }
 
+.header-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(91, 33, 182, 0.1);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.header-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.header-avatar svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+}
+
 /* User Info Bar */
 .user-info-bar {
   background: linear-gradient(135deg, #5b21b6 0%, #3b0764 100%);
@@ -58,11 +81,19 @@
 .user-avatar {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
+  border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
   display: grid;
   place-items: center;
   font-size: 1.8rem;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-avatar svg {

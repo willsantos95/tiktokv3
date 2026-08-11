@@ -174,6 +174,60 @@ const TikTokAuth = {
       userNameEl.textContent = displayName;
     }
 
+    // Update user avatar if available
+    const avatarUrl = userInfo.avatarUrl || userInfo.avatar_url;
+    const displayName = userInfo.displayName || userInfo.display_name || 'User';
+
+    if (avatarUrl) {
+      console.log(`   Setting avatar to: ${avatarUrl}`);
+
+      // Update dashboard avatar
+      const avatarImg = document.getElementById('user-avatar-img');
+      const avatarFallback = document.getElementById('user-avatar-fallback');
+
+      if (avatarImg && avatarFallback) {
+        avatarImg.src = avatarUrl;
+        avatarImg.alt = `${displayName}'s avatar`;
+
+        // Show image and hide fallback when image loads
+        avatarImg.onload = () => {
+          console.log('   ✅ Dashboard avatar image loaded');
+          avatarImg.style.display = 'block';
+          avatarFallback.style.display = 'none';
+        };
+
+        // If image fails to load, keep showing fallback
+        avatarImg.onerror = () => {
+          console.log('   ⚠️ Dashboard avatar image failed to load, showing fallback');
+          avatarImg.style.display = 'none';
+          avatarFallback.style.display = 'block';
+        };
+      }
+
+      // Update header avatar
+      const headerAvatarImg = document.getElementById('header-avatar-img');
+      const headerAvatarFallback = document.getElementById('header-avatar-fallback');
+
+      if (headerAvatarImg && headerAvatarFallback) {
+        headerAvatarImg.src = avatarUrl;
+        headerAvatarImg.alt = `${displayName}'s avatar`;
+
+        // Show image and hide fallback when image loads
+        headerAvatarImg.onload = () => {
+          console.log('   ✅ Header avatar image loaded');
+          headerAvatarImg.style.display = 'block';
+          headerAvatarFallback.style.display = 'none';
+        };
+
+        // If image fails to load, keep showing fallback
+        headerAvatarImg.onerror = () => {
+          console.log('   ⚠️ Header avatar image failed to load, showing fallback');
+          headerAvatarImg.style.display = 'none';
+          headerAvatarFallback.style.display = 'block';
+        };
+      }
+    }
+
     // Show logout button
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {

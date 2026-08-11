@@ -21,6 +21,13 @@
       <div class="header-actions">
         <button class="nav-toggle" aria-label="Open navigation" aria-expanded="false">☰</button>
         <button id="user-menu-btn" class="user-menu-btn" aria-label="User menu">
+          <div id="header-avatar" class="header-avatar">
+            <img id="header-avatar-img" src="" alt="User avatar" style="display: none;">
+            <svg id="header-avatar-fallback" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="8" r="4"></circle>
+              <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"></path>
+            </svg>
+          </div>
           <span id="user-name">User</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="8" r="4"></circle>
@@ -43,8 +50,9 @@
     <section class="user-info-bar">
       <div class="container">
         <div class="user-info">
-          <div class="user-avatar">
-            <svg viewBox="0 0 24 24" fill="currentColor">
+          <div class="user-avatar" id="user-avatar-container">
+            <img id="user-avatar-img" src="" alt="User avatar" style="display: none; width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+            <svg id="user-avatar-fallback" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="12" cy="8" r="4"></circle>
               <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"></path>
             </svg>
