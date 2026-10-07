@@ -9,7 +9,7 @@ import { TOKEN_REFRESH_BUFFER } from '../../../shared/constants/error-codes.js';
 export class OAuthService {
   generateAuthorizationUrl(state: string): string {
     const authUrl = new URL(config.tiktok.authorizationUrl);
-    const scopes = ['user.info.basic', 'video.upload', 'video.publish'];
+    const scopes = ['user.info.basic', 'video.publish'];
 
     authUrl.searchParams.append('client_key', config.tiktok.clientKey);
     authUrl.searchParams.append('response_type', 'code');
@@ -162,7 +162,7 @@ export class OAuthService {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       expiresAt: new Date(Date.now() + tokenData.expires_in * 1000),
-      tokenScope: tokenData.scope || 'user.info.basic,video.upload,video.publish',
+      tokenScope: tokenData.scope || 'user.info.basic,video.publish',
     };
 
     logger.info('🔨 Creating SessionUser object', {

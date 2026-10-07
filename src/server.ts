@@ -19,12 +19,12 @@ const __dirname = path.dirname(__filename);
 // Validate configuration
 validateConfig();
 
-// Create upload directories if they don't exist
+// Create the temporary upload directory if it doesn't exist.
+// Videos are only kept here while they are being sent to TikTok.
 const uploadsDir = path.join(process.cwd(), 'uploads');
-const publicUploadDir = path.join(uploadsDir, 'public');
 const tempUploadDir = path.join(uploadsDir, 'temp');
 
-[uploadsDir, publicUploadDir, tempUploadDir].forEach(dir => {
+[uploadsDir, tempUploadDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
     logger.info(`📁 Created directory: ${dir}`);
@@ -33,13 +33,13 @@ const tempUploadDir = path.join(uploadsDir, 'temp');
 
 const app = express();
 
-// Security middleware with CSP allowing data URLs for video preview
+// Security middleware with CSP allowing blob URLs for the local video preview
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        mediaSrc: ["'self'", 'data:'],
+        mediaSrc: ["'self'", 'blob:'],
         styleSrc: ["'self'", "'unsafe-inline'"],
         scriptSrc: ["'self'"],
         imgSrc: ["'self'", 'data:', 'https:'],
@@ -98,10 +98,6 @@ logger.info('📋 Session middleware configured', {
 const publicDir = path.join(__dirname, '..', 'public');
 app.use(express.static(publicDir));
 logger.info(`📁 Serving static files from: ${publicDir}`);
-
-// Serve uploaded videos
-app.use('/uploads', express.static(uploadsDir));
-logger.info(`📁 Serving uploads from: ${uploadsDir}`);
 
 // Request logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {

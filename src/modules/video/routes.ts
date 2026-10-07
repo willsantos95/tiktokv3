@@ -12,16 +12,25 @@ const upload = multer({
 export const videoRoutes = Router();
 
 // Protected routes (requires authentication)
-videoRoutes.post(
-  '/upload-draft',
+
+// Latest creator info (nickname, privacy options, interaction settings, max duration)
+videoRoutes.get(
+  '/creator-info',
   authMiddleware,
-  upload.single('video'),
-  (req, res, next) => videoController.uploadDraft(req, res, next),
+  (req, res, next) => videoController.getCreatorInfo(req, res, next),
 );
 
+// Direct post to TikTok
 videoRoutes.post(
   '/publish',
   authMiddleware,
   upload.single('video'),
   (req, res, next) => videoController.publishVideo(req, res, next),
+);
+
+// Processing / publish status of a post
+videoRoutes.get(
+  '/status/:publishId',
+  authMiddleware,
+  (req, res, next) => videoController.getPublishStatus(req, res, next),
 );

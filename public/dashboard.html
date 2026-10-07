@@ -59,7 +59,7 @@
           </div>
           <div>
             <p class="user-label">Connected TikTok Account</p>
-            <h2 class="user-account-name" id="tiktok-username">Carregando...</h2>
+            <h2 class="user-account-name" id="tiktok-username">Loading...</h2>
             <p class="user-id" id="user-id" style="font-size: 0.85rem; color: #666; margin-top: 4px;"></p>
           </div>
         </div>
@@ -72,230 +72,153 @@
       <div class="container">
         <div class="dashboard-header">
           <div>
-            <h1>Manage Your Content</h1>
-            <p>Choose how you want to publish your videos to TikTok</p>
+            <h1>Post to TikTok</h1>
+            <p>Choose your video, set the details and publish it directly to your TikTok account.</p>
           </div>
         </div>
 
-        <!-- Two-Column Layout -->
-        <div class="publishing-options">
-          <!-- Option 1: Video Upload (Draft) -->
-          <div class="publishing-card draft-card">
-            <div class="card-header">
-              <span class="badge draft">Draft Upload</span>
-              <h2>Send as Draft</h2>
+        <section class="post-card" aria-labelledby="post-card-title">
+          <h2 id="post-card-title" class="post-card-title">New TikTok post</h2>
+
+          <!-- Creator info (always read from TikTok before the form is shown) -->
+          <div id="creator-panel" class="creator-panel" aria-live="polite">
+            <div class="creator-avatar">
+              <img id="creator-avatar-img" src="" alt="" style="display: none;">
+              <svg id="creator-avatar-fallback" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="8" r="4"></circle>
+                <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"></path>
+              </svg>
             </div>
-
-            <div class="card-description">
-              <p>Upload your video to TikTok as a draft. You'll review and finalize the publication directly in the TikTok app.</p>
+            <div class="creator-text">
+              <p class="creator-label">This video will be posted to the TikTok account</p>
+              <p class="creator-nickname" id="creator-nickname">Loading TikTok account...</p>
+              <p class="creator-username" id="creator-username"></p>
             </div>
-
-            <div class="card-features">
-              <h3>What happens:</h3>
-              <ul class="feature-list">
-                <li><span class="step-number">1</span> You select a video and caption</li>
-                <li><span class="step-number">2</span> Video uploads to your TikTok drafts</li>
-                <li><span class="step-number">3</span> You complete editing in TikTok app</li>
-                <li><span class="step-number">4</span> You publish from TikTok</li>
-              </ul>
-            </div>
-
-            <div class="card-benefits">
-              <h3>Benefits:</h3>
-              <ul class="benefits-list">
-                <li>✓ Full control in TikTok editor</li>
-                <li>✓ Add effects, music, stickers</li>
-                <li>✓ Schedule posting time</li>
-                <li>✓ Save drafts for later</li>
-              </ul>
-            </div>
-
-            <form id="upload-draft-form" class="upload-form">
-              <div class="form-group">
-                <label for="video-file-draft">Select Video</label>
-                <input type="file" id="video-file-draft" accept="video/*" required>
-                <span class="file-hint">MP4, MOV, or WebM (max 2GB)</span>
-              </div>
-
-              <div class="form-group">
-                <label for="caption-draft">Video Caption</label>
-                <textarea id="caption-draft" placeholder="Add your video caption..." rows="3"></textarea>
-              </div>
-
-              <div class="form-group">
-                <label for="privacy-draft">Privacy Level</label>
-                <select id="privacy-draft" required>
-                  <option value="SELF_ONLY">Apenas para mim (SELF_ONLY)</option>
-                  <option value="PUBLIC">Público (PUBLIC)</option>
-                  <option value="FRIENDS">Apenas amigos (FRIENDS)</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" id="disable-duet-draft" value="true">
-                  Desabilitar Duet
-                </label>
-              </div>
-
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" id="disable-comment-draft" value="true">
-                  Desabilitar Comentários
-                </label>
-              </div>
-
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" id="disable-stitch-draft" value="true">
-                  Desabilitar Stitch
-                </label>
-              </div>
-
-              <div id="draft-status" class="status-message"></div>
-
-              <button type="submit" class="button primary upload-btn">
-                <span class="btn-icon">📤</span>
-                <span>Upload as Draft</span>
-              </button>
-            </form>
           </div>
 
-          <!-- Option 2: Video Publish (Direct) -->
-          <div class="publishing-card publish-card">
-            <div class="card-header">
-              <span class="badge publish">Direct Publish</span>
-              <h2>Publish Directly</h2>
-            </div>
+          <div id="creator-error" class="notice error" role="alert" hidden>
+            <p id="creator-error-message"></p>
+            <p>You cannot post right now. Please try again later.</p>
+            <button type="button" id="creator-retry" class="button secondary">Try again</button>
+          </div>
 
-            <div class="card-description">
-              <p>Upload and publish your video directly to TikTok in one step. Content goes live immediately after you confirm.</p>
-            </div>
+          <form id="publish-form" class="post-form" novalidate>
+            <fieldset id="publish-fieldset" class="form-fieldset" disabled>
+              <legend class="visually-hidden">Post details</legend>
 
-            <div class="card-features">
-              <h3>What happens:</h3>
-              <ul class="feature-list">
-                <li><span class="step-number">1</span> You select a video and caption</li>
-                <li><span class="step-number">2</span> You review content before publishing</li>
-                <li><span class="step-number">3</span> Video uploads and publishes</li>
-                <li><span class="step-number">4</span> Content goes live on your profile</li>
-              </ul>
-            </div>
-
-            <div class="card-benefits">
-              <h3>Benefits:</h3>
-              <ul class="benefits-list">
-                <li>✓ One-click publishing workflow</li>
-                <li>✓ Faster content distribution</li>
-                <li>✓ Automated quality checks</li>
-                <li>✓ Publishing logs and tracking</li>
-              </ul>
-            </div>
-
-            <form id="publish-form" class="upload-form">
+              <!-- Video + preview -->
               <div class="form-group">
-                <label for="video-file-publish">Select Video</label>
-                <input type="file" id="video-file-publish" accept="video/*" required>
-                <span class="file-hint">MP4, MOV, or WebM (max 2GB)</span>
+                <label for="video-file">Video</label>
+                <input type="file" id="video-file" accept="video/mp4,video/quicktime,video/webm">
+                <span class="file-hint" id="video-hint">MP4, MOV or WebM (max 2GB)</span>
+                <p class="field-error" id="video-error" role="alert" hidden></p>
               </div>
 
-              <div class="form-group">
-                <label for="caption-publish">Video Caption</label>
-                <textarea id="caption-publish" placeholder="Add your video caption..." rows="3"></textarea>
+              <div class="video-preview" id="video-preview" hidden>
+                <p class="preview-label">Preview of the video that will be posted</p>
+                <div class="preview-video">
+                  <video id="preview-video" controls playsinline></video>
+                </div>
               </div>
 
+              <!-- Title -->
               <div class="form-group">
-                <label for="hashtags-publish">Hashtags</label>
-                <input type="text" id="hashtags-publish" placeholder="Add hashtags separated by spaces (e.g. #tiktok #video #trending)">
+                <label for="title">Title</label>
+                <textarea id="title" rows="3" maxlength="2200" placeholder="Describe your video. You can add #hashtags and @mentions."></textarea>
+                <span class="file-hint"><span id="title-count">0</span> / 2200</span>
               </div>
 
+              <!-- Privacy: options come from TikTok and there is no default -->
               <div class="form-group">
-                <label for="privacy-publish">Privacy Level</label>
-                <select id="privacy-publish" required>
-                  <option value="SELF_ONLY">Apenas para mim (SELF_ONLY)</option>
-                  <option value="PUBLIC">Público (PUBLIC)</option>
-                  <option value="FRIENDS">Apenas amigos (FRIENDS)</option>
+                <label for="privacy">Who can view this video</label>
+                <select id="privacy" required>
+                  <option value="" selected disabled>Select an option</option>
                 </select>
               </div>
 
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" id="disable-duet-publish" value="true">
-                  Desabilitar Duet
+              <!-- Interaction ability: nothing is checked by default -->
+              <fieldset class="form-group option-group">
+                <legend>Allow users to</legend>
+                <label class="check-row" id="row-comment">
+                  <input type="checkbox" id="allow-comment">
+                  <span class="check-text"><strong>Comment</strong></span>
                 </label>
+                <label class="check-row" id="row-duet">
+                  <input type="checkbox" id="allow-duet">
+                  <span class="check-text"><strong>Duet</strong></span>
+                </label>
+                <label class="check-row" id="row-stitch">
+                  <input type="checkbox" id="allow-stitch">
+                  <span class="check-text"><strong>Stitch</strong></span>
+                </label>
+                <p class="file-hint" id="interaction-hint" hidden>Options in grey are turned off in your TikTok settings.</p>
+              </fieldset>
+
+              <!-- Commercial content disclosure: off by default -->
+              <div class="form-group commercial">
+                <div class="switch-row">
+                  <div>
+                    <label for="commercial-toggle" class="switch-title">Disclose commercial content</label>
+                    <p class="file-hint">Turn on to disclose that this video promotes yourself, a brand, product or service.</p>
+                  </div>
+                  <input type="checkbox" id="commercial-toggle" class="switch" role="switch" aria-checked="false">
+                </div>
+
+                <div id="commercial-options" class="commercial-options" hidden>
+                  <label class="check-row" id="row-brand-organic">
+                    <input type="checkbox" id="brand-organic">
+                    <span class="check-text">
+                      <strong>Your brand</strong>
+                      <small>You are promoting yourself or your own business.</small>
+                    </span>
+                  </label>
+                  <label class="check-row" id="row-brand-content">
+                    <input type="checkbox" id="brand-content">
+                    <span class="check-text">
+                      <strong>Branded content</strong>
+                      <small>You are promoting another brand or a third party.</small>
+                    </span>
+                  </label>
+
+                  <p class="notice info" id="commercial-label-note" hidden></p>
+                  <p class="field-error" id="brand-private-note" role="alert" hidden>Branded content visibility cannot be set to private.</p>
+                  <p class="field-error" id="commercial-error" role="alert" hidden>You need to indicate if your content promotes yourself, a third party, or both.</p>
+                </div>
               </div>
 
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" id="disable-comment-publish" value="true">
-                  Desabilitar Comentários
-                </label>
-              </div>
+              <!-- Declarations (text changes with the commercial content selection) -->
+              <p class="declaration" id="declaration">By posting, you agree to TikTok's <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer">Music Usage Confirmation</a>.</p>
 
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" id="disable-stitch-publish" value="true">
-                  Desabilitar Stitch
-                </label>
-              </div>
+              <p class="notice info">After you finish publishing your content, it may take a few minutes for the content to process and be visible on your profile.</p>
 
-              <div id="publish-status" class="status-message"></div>
+              <p class="form-hint" id="form-hint" aria-live="polite"></p>
 
-              <button type="submit" class="button primary upload-btn">
+              <button type="submit" class="button primary upload-btn" id="publish-btn" disabled>
                 <span class="btn-icon">🚀</span>
-                <span>Review & Publish</span>
+                <span>Publish to TikTok</span>
               </button>
-            </form>
-          </div>
-        </div>
+            </fieldset>
+          </form>
+        </section>
 
         <!-- Recent Activity -->
         <section class="recent-activity">
           <h2>Publication History</h2>
           <div id="activity-list" class="activity-list">
             <div class="activity-empty">
-              <p>No publications yet. Upload your first video to get started!</p>
+              <p>No publications yet. Publish your first video to get started!</p>
             </div>
           </div>
         </section>
       </div>
     </section>
 
-    <!-- Publishing Preview Modal -->
-    <div id="preview-modal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Preview Before Publishing</h2>
-          <button class="modal-close" aria-label="Close modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="preview-video">
-            <video id="preview-video" controls></video>
-          </div>
-          <div class="preview-details">
-            <div class="preview-item">
-              <label>Caption:</label>
-              <p id="preview-caption"></p>
-            </div>
-            <div class="preview-item">
-              <label>Hashtags:</label>
-              <p id="preview-hashtags"></p>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="button secondary" id="cancel-publish">Cancel</button>
-          <button class="button primary" id="confirm-publish">Publish to TikTok</button>
-        </div>
-      </div>
-    </div>
-
     <!-- Publishing Status Modal -->
     <div id="status-modal" class="modal">
-      <div class="modal-content modal-center">
+      <div class="modal-content modal-center" role="dialog" aria-modal="true" aria-labelledby="status-title">
         <div id="status-icon" class="status-icon"></div>
         <h2 id="status-title">Publishing...</h2>
-        <p id="status-message">Processing your video upload to TikTok...</p>
+        <p id="status-message">Sending your video to TikTok...</p>
         <button id="close-status" class="button primary" style="display: none;">Back to Dashboard</button>
       </div>
     </div>
