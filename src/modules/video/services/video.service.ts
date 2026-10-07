@@ -3,518 +3,383 @@ import fs from 'fs';
 import { config } from '../../../config/index.js';
 import { logger } from '../../../shared/utils/logger.js';
 import { AppError } from '../../../shared/middleware/error-handler.js';
-import { ErrorCode, VALID_VIDEO_FORMATS, MAX_VIDEO_SIZE, MAX_CAPTION_LENGTH } from '../../../shared/constants/error-codes.js';
-import { VideoMetadata, TikTokVideoInit, TikTokVideoFinish, SessionUser } from '../../../types/index.js';
+import {
+  ErrorCode,
+  VALID_VIDEO_FORMATS,
+  MAX_VIDEO_SIZE,
+  MAX_CAPTION_LENGTH,
+} from '../../../shared/constants/error-codes.js';
+import {
+  CreatorInfo,
+  PublishStatus,
+  SessionUser,
+  TikTokCreatorInfoResponse,
+  TikTokPublishStatusResponse,
+  TikTokVideoInit,
+  VideoMetadata,
+} from '../../../types/index.js';
+
+const MB = 1024 * 1024;
+const MIN_FILE_SIZE = 1024; // 1KB sanity check
+const PREFERRED_CHUNK_SIZE = 10 * MB;
+
+// Messages shown to the user for TikTok error codes that we know how to explain
+const FRIENDLY_TIKTOK_ERRORS: Record<string, string> = {
+  spam_risk_too_many_posts:
+    'The daily posting limit for this TikTok account was reached. Please try again later.',
+  spam_risk_user_banned_from_posting:
+    'This TikTok account is currently not allowed to post through the API. Please try again later.',
+  reached_active_user_cap:
+    'The daily usage limit of this app on TikTok was reached. Please try again later.',
+  unaudited_client_can_only_post_to_private_accounts:
+    'This app is still under TikTok review, so videos can only be posted to a private TikTok account (or with "Only me" visibility).',
+  privacy_level_option_mismatch:
+    'The selected privacy option is not available for this TikTok account. Please choose another one.',
+};
+
+// Codes that mean "this creator cannot post right now": stop and ask the user to try later
+const CREATOR_CANNOT_POST_CODES = new Set([
+  'spam_risk_too_many_posts',
+  'spam_risk_user_banned_from_posting',
+  'reached_active_user_cap',
+]);
+
+export interface ChunkPlan {
+  chunkSize: number;
+  totalChunkCount: number;
+}
 
 export class VideoService {
-  validateVideoFile(file: Express.Multer.File): void {
-    if (!file) {
-      throw new AppError(
-        ErrorCode.INVALID_REQUEST,
-        400,
-        { message: 'No video file provided' },
-      );
-    }
-
-    logger.info('🔍 Validating video file', {
-      filename: file.originalname,
-      mimetype: file.mimetype,
-      size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-    });
-
-    // Validate file type - TikTok accepts MP4, MOV, WebM
-    if (!VALID_VIDEO_FORMATS.includes(file.mimetype)) {
-      logger.warn('❌ Invalid video format', {
-        provided: file.mimetype,
-        accepted: VALID_VIDEO_FORMATS,
-      });
-
-      throw new AppError(
-        ErrorCode.INVALID_FILE_FORMAT,
-        400,
-        {
-          message: `Invalid video format. Accepted formats: ${VALID_VIDEO_FORMATS.join(', ')}`,
-          provided: file.mimetype,
-          allowedFormats: VALID_VIDEO_FORMATS,
-        },
-      );
-    }
-
-    // Validate file size - TikTok limit is 2GB
-    if (file.size > MAX_VIDEO_SIZE) {
-      logger.warn('❌ Video file too large', {
-        size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-        maxSize: `${(MAX_VIDEO_SIZE / 1024 / 1024).toFixed(2)}MB`,
-      });
-
-      throw new AppError(
-        ErrorCode.FILE_TOO_LARGE,
-        413,
-        {
-          message: `Video file exceeds maximum size of ${(MAX_VIDEO_SIZE / 1024 / 1024 / 1024).toFixed(1)}GB`,
-          maxSize: MAX_VIDEO_SIZE,
-          provided: file.size,
-        },
-      );
-    }
-
-    // Minimum file size check - video should be at least 1KB
-    const MIN_FILE_SIZE = 1024;
-    if (file.size < MIN_FILE_SIZE) {
-      logger.warn('❌ Video file too small', {
-        size: file.size,
-        minSize: MIN_FILE_SIZE,
-      });
-
-      throw new AppError(
-        ErrorCode.INVALID_REQUEST,
-        400,
-        { message: 'Video file is too small' },
-      );
-    }
-
-    logger.info('✅ Video file validation passed', {
-      filename: file.originalname,
-      size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-    });
+  private headers(user: SessionUser): Record<string, string> {
+    return {
+      Authorization: `Bearer ${user.accessToken}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+    };
   }
 
-  validateMetadata(metadata: VideoMetadata): void {
-    if (!metadata) {
-      throw new AppError(
-        ErrorCode.INVALID_METADATA,
-        400,
-        { message: 'Video metadata is required' },
-      );
+  // Converts any failure of a TikTok call into an AppError the client can display
+  private toAppError(error: unknown, action: string): AppError {
+    if (error instanceof AppError) {
+      return error;
     }
 
-    logger.info('🔍 Validating video metadata', {
-      titleLength: metadata.title?.length || 0,
-      privacyLevel: metadata.privacyLevel,
-    });
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      const tiktokError = (error.response?.data as any)?.error;
+      const tiktokCode: string | undefined = tiktokError?.code;
 
-    // Title/Caption validation
-    if (metadata.title && metadata.title.trim().length === 0) {
-      logger.warn('⚠️  Empty title provided');
-      // Allow empty title - use default
-    }
-
-    if (metadata.title && metadata.title.length > MAX_CAPTION_LENGTH) {
-      logger.warn('❌ Caption too long', {
-        length: metadata.title.length,
-        maxLength: MAX_CAPTION_LENGTH,
+      logger.error(`❌ TikTok API error while trying to ${action}`, {
+        status,
+        tiktokCode,
+        tiktokMessage: tiktokError?.message,
+        logId: tiktokError?.log_id,
       });
 
-      throw new AppError(
-        ErrorCode.INVALID_METADATA,
-        400,
-        {
-          message: `Caption exceeds maximum length of ${MAX_CAPTION_LENGTH} characters`,
-          titleLength: metadata.title.length,
-          maxLength: MAX_CAPTION_LENGTH,
-        },
-      );
-    }
-
-    // Privacy level validation
-    const validPrivacyLevels = ['PUBLIC', 'FRIENDS', 'SELF_ONLY'];
-    if (!validPrivacyLevels.includes(metadata.privacyLevel)) {
-      logger.warn('❌ Invalid privacy level', {
-        provided: metadata.privacyLevel,
-        valid: validPrivacyLevels,
-      });
-
-      throw new AppError(
-        ErrorCode.INVALID_METADATA,
-        400,
-        {
-          message: `Invalid privacy level. Must be one of: ${validPrivacyLevels.join(', ')}`,
-          provided: metadata.privacyLevel,
-          validPrivacyLevels,
-        },
-      );
-    }
-
-    // Boolean flags validation
-    if (typeof metadata.disableDuet !== 'boolean') {
-      logger.warn('⚠️  disableDuet is not boolean, coercing to boolean');
-      metadata.disableDuet = Boolean(metadata.disableDuet);
-    }
-
-    if (typeof metadata.disableComment !== 'boolean') {
-      logger.warn('⚠️  disableComment is not boolean, coercing to boolean');
-      metadata.disableComment = Boolean(metadata.disableComment);
-    }
-
-    if (typeof metadata.disableStitch !== 'boolean') {
-      logger.warn('⚠️  disableStitch is not boolean, coercing to boolean');
-      metadata.disableStitch = Boolean(metadata.disableStitch);
-    }
-
-    logger.info('✅ Video metadata validation passed', {
-      privacy: metadata.privacyLevel,
-      titleLength: metadata.title?.length || 0,
-      restrictions: {
-        duet: metadata.disableDuet,
-        comment: metadata.disableComment,
-        stitch: metadata.disableStitch,
-      },
-    });
-  }
-
-  async initializeUploadFromUrl(
-    user: SessionUser,
-    videoUrl: string,
-    metadata: VideoMetadata,
-    publishType: 'DRAFT' | 'PUBLISH_IMMEDIATELY',
-  ): Promise<string> {
-    try {
-      logger.info('📤 Initializing video upload from URL', {
-        videoUrl: videoUrl.substring(0, 50) + '...',
-        publishType,
-      });
-
-      // Build init payload per TikTok API v2 documentation - PULL_FROM_URL method
-      // https://developers.tiktok.com/doc/video-upload-api
-      const postInfo: any = {
-        title: metadata.title || 'Video',
-        privacy_level: metadata.privacyLevel,
-        disable_comment: metadata.disableComment,
-        disable_duet: metadata.disableDuet,
-        disable_stitch: metadata.disableStitch,
-        allow_download: true,
-        auto_add_linked_sound: false,
-      };
-
-      // Set video cover timestamp if provided
-      if (metadata.videoCoverTimestampMs) {
-        postInfo.video_cover_timestamp_ms = metadata.videoCoverTimestampMs;
+      if (status === 401) {
+        return new AppError(ErrorCode.TOKEN_EXPIRED, 401, { tiktokCode });
       }
 
-      const initPayload: any = {
-        post_info: postInfo,
-        source_info: {
-          source: 'PULL_FROM_URL',
-          video_url: videoUrl,
-        },
-      };
+      if (status === 429) {
+        return new AppError(ErrorCode.TIKTOK_RATE_LIMIT, 429, { tiktokCode });
+      }
 
-      logger.info('🌐 Sending init request to TikTok API (PULL_FROM_URL)', {
-        url: `${config.tiktok.apiBaseUrl}/v2/post/publish/video/init/`,
-        source: 'PULL_FROM_URL',
-        videoUrl: videoUrl.substring(0, 50) + '...',
-        payload: JSON.stringify(initPayload),
+      const friendly = tiktokCode ? FRIENDLY_TIKTOK_ERRORS[tiktokCode] : undefined;
+
+      if (tiktokCode && CREATOR_CANNOT_POST_CODES.has(tiktokCode)) {
+        return new AppError(ErrorCode.CREATOR_CANNOT_POST, 403, { message: friendly, tiktokCode });
+      }
+
+      return new AppError(ErrorCode.TIKTOK_API_ERROR, 502, {
+        message: friendly || tiktokError?.message || error.message,
+        tiktokCode,
+        logId: tiktokError?.log_id,
+      });
+    }
+
+    logger.error(`❌ Unexpected error while trying to ${action}`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 500);
+  }
+
+  // Some TikTok errors come back as HTTP 200 with error.code != "ok"
+  private assertTikTokOk(
+    body: { error?: { code: string; message?: string; log_id?: string } },
+    action: string,
+  ): void {
+    const code = body?.error?.code;
+    if (!code || code === 'ok') {
+      return;
+    }
+
+    logger.warn(`⚠️  TikTok returned an error while trying to ${action}`, {
+      code,
+      message: body.error?.message,
+      logId: body.error?.log_id,
+    });
+
+    const friendly = FRIENDLY_TIKTOK_ERRORS[code];
+
+    if (CREATOR_CANNOT_POST_CODES.has(code)) {
+      throw new AppError(ErrorCode.CREATOR_CANNOT_POST, 403, { message: friendly, tiktokCode: code });
+    }
+
+    throw new AppError(ErrorCode.TIKTOK_API_ERROR, 502, {
+      message: friendly || body.error?.message || 'TikTok API error',
+      tiktokCode: code,
+      logId: body.error?.log_id,
+    });
+  }
+
+  /**
+   * Required UX #1: always read the latest creator info before showing the post page
+   * and before publishing. https://developers.tiktok.com/doc/content-posting-api-reference-query-creator-info
+   */
+  async getCreatorInfo(user: SessionUser): Promise<CreatorInfo> {
+    try {
+      const response = await axios.post<TikTokCreatorInfoResponse>(
+        `${config.tiktok.apiBaseUrl}/v2/post/publish/creator_info/query/`,
+        {},
+        { headers: this.headers(user), timeout: 15000 },
+      );
+
+      this.assertTikTokOk(response.data, 'query creator info');
+
+      const data = response.data.data;
+      if (!data) {
+        throw new AppError(ErrorCode.TIKTOK_API_ERROR, 502, {
+          message: 'TikTok did not return creator information.',
+        });
+      }
+
+      return {
+        avatarUrl: data.creator_avatar_url,
+        username: data.creator_username,
+        nickname: data.creator_nickname,
+        privacyLevelOptions: data.privacy_level_options || [],
+        commentDisabled: !!data.comment_disabled,
+        duetDisabled: !!data.duet_disabled,
+        stitchDisabled: !!data.stitch_disabled,
+        maxVideoPostDurationSec: data.max_video_post_duration_sec,
+      };
+    } catch (error) {
+      throw this.toAppError(error, 'query creator info');
+    }
+  }
+
+  validateVideoFile(file: Express.Multer.File): void {
+    if (!file) {
+      throw new AppError(ErrorCode.INVALID_REQUEST, 400, { message: 'No video file provided' });
+    }
+
+    if (!VALID_VIDEO_FORMATS.includes(file.mimetype)) {
+      throw new AppError(ErrorCode.INVALID_FILE_FORMAT, 400, {
+        message: `Invalid video format. Accepted formats: ${VALID_VIDEO_FORMATS.join(', ')}`,
+        provided: file.mimetype,
+      });
+    }
+
+    if (file.size > MAX_VIDEO_SIZE) {
+      throw new AppError(ErrorCode.FILE_TOO_LARGE, 413, {
+        message: `Video file exceeds maximum size of ${(MAX_VIDEO_SIZE / 1024 / MB).toFixed(1)}GB`,
+      });
+    }
+
+    if (file.size < MIN_FILE_SIZE) {
+      throw new AppError(ErrorCode.INVALID_REQUEST, 400, { message: 'Video file is too small' });
+    }
+  }
+
+  /**
+   * Required UX #2 and #3: validates what the user chose against the latest creator info
+   * and against the commercial content rules.
+   */
+  validateMetadata(metadata: VideoMetadata, creator: CreatorInfo): void {
+    const fail = (message: string): never => {
+      throw new AppError(ErrorCode.INVALID_METADATA, 400, { message });
+    };
+
+    const title = (metadata.title || '').trim();
+    if (!title) {
+      fail('A title is required.');
+    }
+
+    if (title.length > MAX_CAPTION_LENGTH) {
+      fail(`The title exceeds the maximum length of ${MAX_CAPTION_LENGTH} characters.`);
+    }
+
+    // Privacy must be one of the options returned by creator_info (there is no default)
+    if (!metadata.privacyLevel) {
+      fail('Please select who can view this video.');
+    }
+
+    if (!creator.privacyLevelOptions.includes(metadata.privacyLevel)) {
+      fail('The selected privacy option is not available for this TikTok account.');
+    }
+
+    // Interactions disabled in the creator's TikTok settings can never be enabled
+    if (creator.commentDisabled && !metadata.disableComment) {
+      fail('Comments are disabled in this creator\'s TikTok settings.');
+    }
+    if (creator.duetDisabled && !metadata.disableDuet) {
+      fail('Duet is disabled in this creator\'s TikTok settings.');
+    }
+    if (creator.stitchDisabled && !metadata.disableStitch) {
+      fail('Stitch is disabled in this creator\'s TikTok settings.');
+    }
+
+    // Commercial content disclosure
+    if (metadata.commercialContentEnabled && !metadata.brandOrganicToggle && !metadata.brandContentToggle) {
+      fail('You need to indicate if your content promotes yourself, a third party, or both.');
+    }
+
+    if (!metadata.commercialContentEnabled && (metadata.brandOrganicToggle || metadata.brandContentToggle)) {
+      fail('Commercial content options require the disclosure toggle to be turned on.');
+    }
+
+    if (metadata.brandContentToggle && metadata.privacyLevel === 'SELF_ONLY') {
+      fail('Branded content visibility cannot be set to private.');
+    }
+  }
+
+  // TikTok chunk rules: 5MB-64MB per chunk (last one up to 128MB); files under 5MB go in one chunk.
+  // total_chunk_count = floor(video_size / chunk_size) and the remainder is merged into the last chunk.
+  getChunkPlan(fileSize: number): ChunkPlan {
+    const chunkSize = Math.min(PREFERRED_CHUNK_SIZE, fileSize);
+    const totalChunkCount = Math.max(1, Math.floor(fileSize / chunkSize));
+    return { chunkSize, totalChunkCount };
+  }
+
+  async initDirectPost(
+    user: SessionUser,
+    metadata: VideoMetadata,
+    fileSize: number,
+  ): Promise<{ publishId: string; uploadUrl: string; plan: ChunkPlan }> {
+    const plan = this.getChunkPlan(fileSize);
+
+    const payload = {
+      post_info: {
+        title: metadata.title.trim(),
+        privacy_level: metadata.privacyLevel,
+        disable_duet: metadata.disableDuet,
+        disable_comment: metadata.disableComment,
+        disable_stitch: metadata.disableStitch,
+        brand_content_toggle: metadata.brandContentToggle,
+        brand_organic_toggle: metadata.brandOrganicToggle,
+      },
+      source_info: {
+        source: 'FILE_UPLOAD',
+        video_size: fileSize,
+        chunk_size: plan.chunkSize,
+        total_chunk_count: plan.totalChunkCount,
+      },
+    };
+
+    try {
+      logger.info('📤 Initializing TikTok direct post', {
+        privacy: metadata.privacyLevel,
+        videoSize: `${(fileSize / MB).toFixed(2)}MB`,
+        chunks: plan.totalChunkCount,
+        commercialContent: metadata.commercialContentEnabled,
       });
 
       const response = await axios.post<TikTokVideoInit>(
         `${config.tiktok.apiBaseUrl}/v2/post/publish/video/init/`,
-        initPayload,
-        {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`,
-            'Content-Type': 'application/json; charset=UTF-8',
-          },
-          timeout: 15000,
-        },
+        payload,
+        { headers: this.headers(user), timeout: 30000 },
       );
 
-      logger.info('📡 Init response received', {
-        status: response.status,
-        data: JSON.stringify(response.data).substring(0, 500),
-      });
+      this.assertTikTokOk(response.data, 'initialize the post');
 
-      const videoId = response.data.data.video_id;
+      const publishId = response.data.data?.publish_id;
+      const uploadUrl = response.data.data?.upload_url;
 
-      logger.info('✅ Video published successfully via PULL_FROM_URL', {
-        videoId,
-        title: metadata.title,
-        privacy: metadata.privacyLevel,
-      });
-
-      return videoId;
-    } catch (error) {
-      logger.error('❌ Failed to initialize upload', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-
-      if (axios.isAxiosError(error)) {
-        const errorData = error.response?.data as any;
-        const errorStatus = error.response?.status;
-        const fullResponse = JSON.stringify(error.response?.data);
-
-        // Log COMPLETE response data
-        logger.error('❌ TikTok API Error Response', {
-          status: errorStatus,
-          statusText: error.response?.statusText,
-          fullData: fullResponse,
-          errorMessage: error.message,
-          responseData: errorData,
+      if (!publishId || !uploadUrl) {
+        throw new AppError(ErrorCode.UPLOAD_FAILED, 502, {
+          message: 'TikTok did not return an upload URL.',
         });
-
-        throw new AppError(
-          ErrorCode.TIKTOK_API_ERROR,
-          errorStatus || 500,
-          {
-            message: errorData?.message || errorData?.error?.message || 'TikTok API error',
-            details: errorData,
-          },
-        );
       }
 
-      throw error;
-    }
-  }
-
-  async uploadVideoChunk(
-    user: SessionUser,
-    uploadToken: string,
-    videoBuffer: Buffer,
-    partNumber: number = 1,
-    chunkSize?: number,
-  ): Promise<void> {
-    try {
-      const sizeMB = (videoBuffer.length / 1024 / 1024).toFixed(2);
-      logger.info('📤 Uploading video chunk', {
-        size: `${sizeMB}MB`,
-        partNumber,
-        totalSize: chunkSize ? `${(chunkSize / 1024 / 1024).toFixed(2)}MB` : 'unknown',
-      });
-
-      logger.info('🌐 Sending video chunk to TikTok API', {
-        url: `${config.tiktok.apiBaseUrl}/v2/post/publish/video/upload/`,
-        params: {
-          upload_token: uploadToken.substring(0, 20) + '...',
-          part_number: partNumber,
-        },
-        bufferSize: videoBuffer.length,
-        contentType: 'application/octet-stream',
-      });
-
-      const response = await axios.post(
-        `${config.tiktok.apiBaseUrl}/v2/post/publish/video/upload/`,
-        videoBuffer,
-        {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`,
-            'Content-Type': 'application/octet-stream',
-            'Content-Length': videoBuffer.length.toString(),
-          },
-          params: {
-            upload_token: uploadToken,
-            part_number: partNumber,
-          },
-          timeout: 120000, // 120 seconds for large files
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity,
-        },
-      );
-
-      logger.info('✅ Video chunk uploaded successfully', {
-        partNumber,
-        responseStatus: response.status,
-        responseData: JSON.stringify(response.data).substring(0, 200),
-      });
+      return { publishId, uploadUrl, plan };
     } catch (error) {
-      logger.error('❌ Failed to upload video chunk', {
-        error: error instanceof Error ? error.message : String(error),
-        partNumber,
-        size: `${(videoBuffer.length / 1024 / 1024).toFixed(2)}MB`,
-      });
-
-      if (axios.isAxiosError(error)) {
-        const errorData = error.response?.data as any;
-        throw new AppError(
-          ErrorCode.UPLOAD_FAILED,
-          error.response?.status || 500,
-          {
-            message: errorData?.message || error.message,
-            details: errorData,
-          },
-        );
-      }
-
-      throw error;
+      throw this.toAppError(error, 'initialize the post');
     }
   }
 
-  async finalizeUpload(
-    user: SessionUser,
-    uploadToken: string,
-    metadata: VideoMetadata,
-    publishType: 'DRAFT' | 'PUBLISH_IMMEDIATELY',
-  ): Promise<string> {
-    try {
-      logger.info('🎬 Finalizing video upload', {
-        publishType,
-        title: metadata.title?.substring(0, 50),
-        privacyLevel: metadata.privacyLevel,
-      });
-
-      const postInfo: any = {
-        title: metadata.title || 'Video',
-        privacy_level: metadata.privacyLevel,
-        disable_comment: metadata.disableComment,
-        disable_duet: metadata.disableDuet,
-        disable_stitch: metadata.disableStitch,
-        // Allow users to download by default (opposite of disable_download)
-        allow_download: true,
-        // Auto-add linked sound if found
-        auto_add_linked_sound: false,
-      };
-
-      // Set video cover timestamp if provided
-      if (metadata.videoCoverTimestampMs) {
-        postInfo.video_cover_timestamp_ms = metadata.videoCoverTimestampMs;
-      }
-
-      const finishPayload: any = {
-        upload_token: uploadToken,
-        publish_type: publishType,
-        post_info: postInfo,
-      };
-
-      logger.info('📋 Finalize payload details', {
-        upload_token: uploadToken.substring(0, 20) + '...',
-        publish_type: finishPayload.publish_type,
-        post_info_fields: Object.keys(postInfo),
-        post_info: postInfo,
-      });
-
-      logger.info('🌐 Sending finalize request to TikTok API', {
-        url: `${config.tiktok.apiBaseUrl}/v2/post/publish/video/finish/`,
-        payload: JSON.stringify(finishPayload),
-      });
-
-      const response = await axios.post<TikTokVideoFinish>(
-        `${config.tiktok.apiBaseUrl}/v2/post/publish/video/finish/`,
-        finishPayload,
-        {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000, // 30 seconds for finalization
-        },
-      );
-
-      logger.info('📡 Finalize response received', {
-        status: response.status,
-        data: JSON.stringify(response.data).substring(0, 500),
-      });
-
-      if (!response.data?.data?.video_id) {
-        logger.error('❌ Invalid response from finalize endpoint', {
-          responseData: response.data,
-        });
-
-        throw new AppError(
-          ErrorCode.UPLOAD_FAILED,
-          500,
-          { message: 'Invalid response from TikTok API - missing video_id' },
-        );
-      }
-
-      const videoId = response.data.data.video_id;
-
-      logger.info(`🎉 Video ${publishType === 'DRAFT' ? 'uploaded as draft' : 'published'} successfully`, {
-        videoId,
-        publishType,
-        title: metadata.title?.substring(0, 30),
-      });
-
-      return videoId;
-    } catch (error) {
-      logger.error('❌ Failed to finalize upload', {
-        error: error instanceof Error ? error.message : String(error),
-        uploadToken: uploadToken?.substring(0, 10) + '...',
-      });
-
-      if (axios.isAxiosError(error)) {
-        const errorData = error.response?.data as any;
-        throw new AppError(
-          ErrorCode.UPLOAD_FAILED,
-          error.response?.status || 500,
-          {
-            message: errorData?.message || error.message,
-            details: errorData,
-          },
-        );
-      }
-
-      if (error instanceof AppError) {
-        throw error;
-      }
-
-      throw new AppError(
-        ErrorCode.UPLOAD_FAILED,
-        500,
-        { message: error instanceof Error ? error.message : String(error) },
-      );
-    }
-  }
-
-  async uploadVideoFile(
-    user: SessionUser,
-    uploadToken: string,
+  async uploadFileInChunks(
+    uploadUrl: string,
     filePath: string,
-    chunkSizeBytes: number = 5 * 1024 * 1024, // 5MB chunks by default
+    fileSize: number,
+    mimeType: string,
+    plan: ChunkPlan,
   ): Promise<void> {
+    const handle = await fs.promises.open(filePath, 'r');
+
     try {
-      const fileSize = fs.statSync(filePath).size;
-      const chunkCount = Math.ceil(fileSize / chunkSizeBytes);
+      for (let index = 0; index < plan.totalChunkCount; index++) {
+        const start = index * plan.chunkSize;
+        const isLast = index === plan.totalChunkCount - 1;
+        const end = isLast ? fileSize - 1 : start + plan.chunkSize - 1;
+        const length = end - start + 1;
 
-      logger.info('📤 Starting large file upload', {
-        fileSize: `${(fileSize / 1024 / 1024).toFixed(2)}MB`,
-        chunkSize: `${(chunkSizeBytes / 1024 / 1024).toFixed(2)}MB`,
-        chunkCount,
-      });
-
-      const fileStream = fs.createReadStream(filePath, {
-        highWaterMark: chunkSizeBytes,
-      });
-
-      let partNumber = 1;
-      const chunks: Buffer[] = [];
-      let currentChunkSize = 0;
-
-      for await (const chunk of fileStream) {
-        chunks.push(chunk);
-        currentChunkSize += chunk.length;
-
-        if (currentChunkSize >= chunkSizeBytes || partNumber === chunkCount) {
-          const buffer = Buffer.concat(chunks);
-          await this.uploadVideoChunk(
-            user,
-            uploadToken,
-            buffer,
-            partNumber,
-            fileSize,
-          );
-
-          chunks.length = 0;
-          currentChunkSize = 0;
-          partNumber++;
+        const buffer = Buffer.alloc(length);
+        const { bytesRead } = await handle.read(buffer, 0, length, start);
+        if (bytesRead !== length) {
+          throw new AppError(ErrorCode.UPLOAD_FAILED, 500, {
+            message: 'Could not read the uploaded video file.',
+          });
         }
-      }
 
-      logger.info('✅ Large file upload completed', {
-        totalChunks: partNumber - 1,
-      });
+        logger.info('📤 Uploading chunk to TikTok', {
+          chunk: `${index + 1}/${plan.totalChunkCount}`,
+          size: `${(length / MB).toFixed(2)}MB`,
+        });
+
+        // 206 = chunk accepted, more to come. 201 = last chunk accepted, TikTok starts processing.
+        await axios.put(uploadUrl, buffer, {
+          headers: {
+            'Content-Type': mimeType,
+            'Content-Length': String(length),
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          },
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+          timeout: 120000,
+          validateStatus: (status) => status === 201 || status === 206,
+        });
+      }
     } catch (error) {
-      logger.error('❌ Failed to upload large video file', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      throw this.toAppError(error, 'upload the video');
+    } finally {
+      await handle.close();
+    }
+  }
 
-      if (error instanceof AppError) {
-        throw error;
+  async fetchPublishStatus(user: SessionUser, publishId: string): Promise<PublishStatus> {
+    try {
+      const response = await axios.post<TikTokPublishStatusResponse>(
+        `${config.tiktok.apiBaseUrl}/v2/post/publish/status/fetch/`,
+        { publish_id: publishId },
+        { headers: this.headers(user), timeout: 15000 },
+      );
+
+      this.assertTikTokOk(response.data, 'fetch the publish status');
+
+      const data = response.data.data;
+      if (!data) {
+        throw new AppError(ErrorCode.TIKTOK_API_ERROR, 502, {
+          message: 'TikTok did not return the publish status.',
+        });
       }
 
-      throw new AppError(
-        ErrorCode.UPLOAD_FAILED,
-        500,
-        { message: error instanceof Error ? error.message : String(error) },
-      );
+      // publicaly_available_post_id is deliberately not exposed: TikTok sends int64 values that
+      // lose precision when parsed as JSON numbers, and the dashboard does not need them.
+      return {
+        status: data.status,
+        failReason: data.fail_reason,
+      };
+    } catch (error) {
+      throw this.toAppError(error, 'fetch the publish status');
     }
   }
 

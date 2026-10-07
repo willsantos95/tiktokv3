@@ -12,6 +12,7 @@ export enum ErrorCode {
   UPLOAD_FAILED = 'VIDEO_003',
   INVALID_METADATA = 'VIDEO_004',
   VIDEO_NOT_FOUND = 'VIDEO_005',
+  CREATOR_CANNOT_POST = 'VIDEO_006',
 
   // TikTok API errors
   TIKTOK_API_ERROR = 'TIKTOK_001',
@@ -33,11 +34,12 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.UNAUTHORIZED]: 'You are not authorized to access this resource.',
   [ErrorCode.SESSION_NOT_FOUND]: 'Session not found.',
 
-  [ErrorCode.INVALID_FILE_FORMAT]: 'Invalid video format. Supported formats: MP4, MOV.',
+  [ErrorCode.INVALID_FILE_FORMAT]: 'Invalid video format. Supported formats: MP4, MOV, WebM.',
   [ErrorCode.FILE_TOO_LARGE]: 'Video file is too large. Maximum size: 2GB.',
   [ErrorCode.UPLOAD_FAILED]: 'Failed to upload video. Please try again.',
   [ErrorCode.INVALID_METADATA]: 'Invalid video metadata provided.',
   [ErrorCode.VIDEO_NOT_FOUND]: 'Video not found.',
+  [ErrorCode.CREATOR_CANNOT_POST]: 'This TikTok account cannot publish right now. Please try again later.',
 
   [ErrorCode.TIKTOK_API_ERROR]: 'TikTok API error. Please try again later.',
   [ErrorCode.TIKTOK_RATE_LIMIT]: 'Too many requests to TikTok. Please wait a moment.',
@@ -50,7 +52,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.NOT_FOUND]: 'Resource not found.',
 };
 
-export const VALID_VIDEO_FORMATS = ['video/mp4', 'video/quicktime'];
+export const VALID_VIDEO_FORMATS = ['video/mp4', 'video/quicktime', 'video/webm'];
 export const MAX_VIDEO_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
 export const MAX_CAPTION_LENGTH = 2200;
 export const OAUTH_STATE_TTL = 10 * 60 * 1000; // 10 minutes

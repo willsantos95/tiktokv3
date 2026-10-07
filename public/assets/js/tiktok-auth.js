@@ -2,7 +2,7 @@
 
 // Configuration - Backend will handle OAuth flow
 const API_BASE_URL = window.location.origin;
-const TIKTOK_SCOPES = ['user.info.basic', 'video.upload', 'video.publish'];
+const TIKTOK_SCOPES = ['user.info.basic', 'video.publish'];
 
 // Session Management
 const TikTokAuth = {

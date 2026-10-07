@@ -48,7 +48,6 @@ export const config = {
   upload: {
     maxSize: 2 * 1024 * 1024 * 1024, // 2GB
     tempDir: process.env.UPLOAD_TEMP_DIR || './uploads/temp',
-    publicDir: process.env.UPLOAD_PUBLIC_DIR || './uploads/public',
   },
 
   // API
